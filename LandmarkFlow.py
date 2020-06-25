@@ -8,15 +8,15 @@ import logging
 import numpy as np
 import string
 #
-# INHSTools
+# LandmarkFlow
 #
 #define global variable for node management
-imagePathStr = os.environ.get('SEGMENTED_DIR','/segmented/INHS_segmented_padded_fish/')
+imagePathStr = os.environ.get('SEGMENTED_DIR','/home/ezgi/mnt/hopper_r/Clinical_CT/nifti/')
 outputPathStr = os.environ.get('CSV_DIR','/segmented/fcsv/')
 segoutputPathStr = os.environ.get('CSV_DIR','/segmented/Segmentations/')
 labs = os.environ.get('labs','unknown_lab')
 
-class INHSTools(ScriptedLoadableModule):
+class LandmarkFlow(ScriptedLoadableModule):
   """Uses ScriptedLoadableModule base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
@@ -46,28 +46,55 @@ https://www.nsf.gov/awardsearch/showAward?AWD_ID=1939505&HistoricalAwards=false
 """ 
 
 #
-# INHSToolsWidget
+# LandmarkFlowWidget
 #
 
-class INHSToolsWidget(ScriptedLoadableModuleWidget):
+class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
   """Uses ScriptedLoadableModuleWidget base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
   def assignLayoutDescription(self, table):
     customLayout = """
-    <layout type="vertical" split="true">
-      <item>
-       <view class="vtkMRMLSliceNode" singletontag="Red">
-        <property name="orientation" action="default">Axial</property>
-        <property name="viewlabel" action="default">R</property>
-        <property name="viewcolor" action="default">#F34A33</property>
-       </view>
-      </item>
-      <item>
-       <view class="vtkMRMLTableViewNode" singletontag="TableViewerWindow_1">
-         <property name=\"viewlabel\" action=\"default\">T</property>"
-       </view>
-      </item>
+    	<layout type=\"vertical\" split=\"true\" >
+     <item splitSize=\"800\">
+      <layout type=\"vertical\">
+       <item>
+        <view class=\"vtkMRMLViewNode\" singletontag=\"1\">
+         <property name=\"viewlabel\" action=\"default\">1</property>
+        </view>
+       </item>
+       <item>
+        <layout type=\"horizontal\">
+         <item>
+          <view class=\"vtkMRMLSliceNode\" singletontag=\"Red\">
+           <property name=\"orientation\" action=\"default\">Axial</property>
+           <property name=\"viewlabel\" action=\"default\">R</property>
+           <property name=\"viewcolor\" action=\"default\">#F34A33</property>
+          </view>
+         </item>
+		 <item>
+          <view class=\"vtkMRMLSliceNode\" singletontag=\"Green\">
+           <property name=\"orientation\" action=\"default\">Coronal</property>
+           <property name=\"viewlabel\" action=\"default\">G</property>
+           <property name=\"viewcolor\" action=\"default\">#6EB04B</property>
+          </view>
+         </item>
+         <item>
+          <view class=\"vtkMRMLSliceNode\" singletontag=\"Yellow\">
+           <property name=\"orientation\" action=\"default\">Sagittal</property>
+           <property name=\"viewlabel\" action=\"default\">Y</property>
+           <property name=\"viewcolor\" action=\"default\">#EDD54C</property>
+          </view>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </item>
+     <item splitSize=\"200\">
+      <view class=\"vtkMRMLTableViewNode\" singletontag=\"TableView1\">
+        <property name=\"viewlabel\" action=\"default\">T</property>
+      </view>
+     </item>
     </layout>
     """
     
@@ -124,95 +151,6 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
     IOFormLayout.addWidget(self.importVolumeButton,2,1,1,3)
     
     #
-    # Image editing Area
-    #
-    parametersCollapsibleButton = ctk.ctkCollapsibleButton()
-    parametersCollapsibleButton.text = "Image Editing"
-    self.layout.addWidget(parametersCollapsibleButton)
-
-    # Layout within the dummy collapsible button
-    parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
-    
-    #
-    # input volume selector
-    #
-    self.volumeSelector = slicer.qMRMLNodeComboBox()
-    self.volumeSelector.nodeTypes = ["vtkMRMLScalarVolumeNode", "vtkMRMLVectorVolumeNode" ]
-    self.volumeSelector.selectNodeUponCreation = True
-    self.volumeSelector.addEnabled = True
-    self.volumeSelector.removeEnabled = True
-    self.volumeSelector.noneEnabled = True
-    self.volumeSelector.showHidden = False
-    self.volumeSelector.showChildNodeTypes = False
-    self.volumeSelector.renameEnabled = True
-    self.volumeSelector.setMRMLScene( slicer.mrmlScene )
-    self.volumeSelector.setToolTip( "Select volume to resample" )
-    parametersFormLayout.addRow("Input Volume: ", self.volumeSelector)
-    
-#    #
-#    # input spacing
-#    #
-#    spacingLayout= qt.QGridLayout()
-#    self.spacingX = ctk.ctkDoubleSpinBox()
-#    self.spacingX.value = 1
-#    self.spacingX.minimum = 0
-#    self.spacingX.singleStep = 1
-#    self.spacingX.setDecimals(2)
-#    self.spacingX.setToolTip("Input spacing X")
-#
-#    self.spacingY = ctk.ctkDoubleSpinBox()
-#    self.spacingY.value = 1
-#    self.spacingY.minimum = 0
-#    self.spacingY.singleStep = 1
-#    self.spacingY.setDecimals(2)
-#    self.spacingY.setToolTip("Input spacing Y")
-#
-#    self.spacingZ = ctk.ctkDoubleSpinBox()
-#    self.spacingZ.value = 1
-#    self.spacingZ.minimum = 0
-#    self.spacingZ.singleStep = 1
-#    self.spacingZ.setDecimals(2)
-#    self.spacingZ.setToolTip("Input spacing Z")
-#
-#    spacingLayout.addWidget(self.spacingX,1,2)
-#    spacingLayout.addWidget(self.spacingY,1,3)
-#    spacingLayout.addWidget(self.spacingZ,1,4)
-#
-#    parametersFormLayout.addRow("Spacing (mm):", spacingLayout)
-    
-#    #
-#    # Apply Button
-#    #
-#    self.applySpacingButton = qt.QPushButton("Apply Spacing")
-#    self.applySpacingButton.toolTip = "Run the algorithm."
-#    self.applySpacingButton.enabled = False
-#    parametersFormLayout.addRow(self.applySpacingButton)
-    
-    #
-    # Flip X-axis Button
-    #
-    self.flipXButton = qt.QPushButton("Flip X-axis")
-    self.flipXButton.toolTip = "Flip the loaded volume across the X-axis"
-    self.flipXButton.enabled = False
-    parametersFormLayout.addRow(self.flipXButton)
-    
-    #
-    # Flip Y-axis Button
-    #
-    self.flipYButton = qt.QPushButton("Flip Y-axis")
-    self.flipYButton.toolTip = "Flip the loaded volume across the Y-axis"
-    self.flipYButton.enabled = False
-    parametersFormLayout.addRow(self.flipYButton)
-    
-    #
-    # Flip Z-axis Button
-    #
-    self.flipZButton = qt.QPushButton("Flip Z-axis")
-    self.flipZButton.toolTip = "Flip the loaded volume across the x-axis"
-    self.flipZButton.enabled = False
-    parametersFormLayout.addRow(self.flipZButton)
-    
-    #
     # Annotations area
     #
     annotationsButton = ctk.ctkCollapsibleButton()
@@ -264,12 +202,7 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
     segmentTabLayout.addRow(self.exportSegmentationButton)
     
     # connections
-    #self.applySpacingButton.connect('clicked(bool)', self.onApplySpacingButton)
-    self.flipXButton.connect('clicked(bool)', self.onFlipX)
-    self.flipYButton.connect('clicked(bool)', self.onFlipY)
-    self.flipZButton.connect('clicked(bool)', self.onFlipZ)
     self.selectorButton.connect('clicked(bool)', self.onLoadTable)
-    self.volumeSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.tableSelector.connect("validInputChanged(bool)", self.onSelectTablePath)
     self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
     self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
@@ -281,14 +214,11 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
     # Add vertical spacer
     self.layout.addStretch(1)
 
-    # Refresh Apply button state
-    self.onSelect()
-    
   def cleanup(self):
     pass
   
   def onStartSegmentation(self):
-    logic = INHSToolsLogic()
+    logic = LandmarkFlowLogic()
     self.segmentationNode = logic.initializeSegmentation(self.volumeNode)
     self.exportSegmentationButton.enabled = True
     slicer.util.selectModule(slicer.modules.segmenteditor)
@@ -317,7 +247,7 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
     self.fileTable = slicer.util.loadNodeFromFile(self.tableSelector.currentPath, 'TableFile')
     self.fileTable.SetLocked(True)
     self.fileTable.SetName(name)
-    logic = INHSToolsLogic()
+    logic = LandmarkFlowLogic()
     logic.hideCompletedSamples(self.fileTable)
     statusColumn = self.fileTable.GetTable().GetColumnByName('Status')
     statusColumn.SetValue(index-1, string)
@@ -342,7 +272,7 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
     else:
       self.fileTable = slicer.util.loadNodeFromFile(self.tableSelector.currentPath, 'TableFile')
     if bool(self.fileTable):
-      logic = INHSToolsLogic()
+      logic = LandmarkFlowLogic()
       logic.checkForStatusColumn(self.fileTable, self.tableSelector.currentPath) # if not present adds and saves to file
       self.importVolumeButton.enabled = True
       self.assignLayoutDescription(self.fileTable)
@@ -352,77 +282,34 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
     else:
       self.importButton.enabled = False
   
-  def onSelect(self):
-    if bool(self.volumeSelector.currentNode()):  
-      if self.INHSFile(self.volumeSelector.currentNode().GetName()):
-        #self.applySpacingButton.enabled =True
-        self.flipXButton.enabled = True
-        self.flipYButton.enabled = True
-        self.flipZButton.enabled = True
-      else:
-        print("File name must include string: 'INHS'")
-        logging.debug("Invalid filename: must include string: 'INHS'")
-        #self.applySpacingButton.enabled = False
-        self.flipXButton.enabled = False
-        self.flipYButton.enabled = False
-        self.flipZButton.enabled = False
-    else:
-      #self.applySpacingButton.enabled = False
-      self.flipXButton.enabled = False
-      self.flipYButton.enabled = False
-      self.flipZButton.enabled = False  
 
-#  def onApplySpacingButton(self):
-#    logic = INHSToolsLogic()
-#    logic.run(self.volumeSelector.currentNode(), self.spacingX.value, self.spacingY.value, self.spacingZ.value)
-  
-  def onFlipX(self):
-    logic = INHSToolsLogic()
-    matrix = vtk.vtkMatrix4x4()
-    matrix.SetElement(0, 0, -1)
-    logic.flip(self.volumeSelector.currentNode(), matrix)
-  
-  def onFlipY(self):
-    logic = INHSToolsLogic()
-    matrix = vtk.vtkMatrix4x4()
-    matrix.SetElement(1, 1, -1)
-    logic.flip(self.volumeSelector.currentNode(), matrix)
-  
-  def onFlipZ(self):
-    logic = INHSToolsLogic()
-    matrix = vtk.vtkMatrix4x4()
-    matrix.SetElement(2, 2, -1)
-    logic.flip(self.volumeSelector.currentNode(), matrix)
-  
-  def INHSFile(self, filename):
-    template = 'INHS'
-    if(template in filename):
-      return True
-    else:
-      return False
-  
   def onImportVolume(self):
-    logic = INHSToolsLogic()
+    logic = LandmarkFlowLogic()
     self.activeCellString = logic.getActiveCell()
     if bool(self.activeCellString):
-      if self.INHSFile(self.activeCellString):
-        self.volumeNode = logic.runImport(self.activeCellString)
-        if bool(self.volumeNode):
-          self.launchMarkupsButton.enabled = True
-          self.startSegmentationButton.enabled = True
-          self.volumeSelector.setCurrentNode(self.volumeNode)
-          self.activeRow = logic.getActiveCellRow()
-          self.updateStatus(self.activeRow, 'Processing')
 
-          volRenLogic = slicer.modules.volumerendering.logic()
-          displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(self.volumeNode)
-          displayNode.SetVisibility(True)
-          displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-AAA'))
+      self.volumeNode = logic.runImport(self.activeCellString)
+      if bool(self.volumeNode):
+        self.launchMarkupsButton.enabled = True
+        self.startSegmentationButton.enabled = True
+        self.activeRow = logic.getActiveCellRow()
+        self.updateStatus(self.activeRow, 'Processing')
 
-        else:
-          logging.debug("Error loading associated files.")
+        # 3D render volume
+        volRenLogic = slicer.modules.volumerendering.logic()
+        displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(self.volumeNode)
+        displayNode.SetVisibility(True)
+        displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-AAA'))
+
+        layoutManager = slicer.app.layoutManager()
+        threeDWidget = layoutManager.threeDWidget(0)
+        threeDView = threeDWidget.threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
       else:
-        logging.debug("Invalid filename: must include string: 'INHS'")
+        logging.debug("Error loading associated files.")
+
     else:
       logging.debug("No valid table cell selected.")
   
@@ -446,9 +333,6 @@ class INHSToolsWidget(ScriptedLoadableModuleWidget):
       slicer.mrmlScene.RemoveNode(self.labelMap)
     self.selectorButton.enabled  = bool(self.tableSelector.currentPath)
     self.importVolumeButton.enabled = True
-    self.flipXButton.enabled = False
-    self.flipYButton.enabled = False
-    self.flipZButton.enabled = False
     self.launchMarkupsButton.enabled = False
     self.exportLandmarksButton.enabled = False
     self.startSegmentationButton.enabled = False
@@ -469,9 +353,9 @@ class LogDataObject:
     self.SeqenceEnd = "NULL"
      
 #
-# INHSToolsLogic
+# LandmarkFlowLogic
 #
-class INHSToolsLogic(ScriptedLoadableModuleLogic):
+class LandmarkFlowLogic(ScriptedLoadableModuleLogic):
   """This class should implement all the actual
   computation done by your module.  The interface
   should be such that other python code can import
@@ -548,16 +432,6 @@ class INHSToolsLogic(ScriptedLoadableModuleLogic):
     segmentID = segmentation.AddEmptySegment(name)
     segmentation.GetSegment(segmentID).SetColor(color)
     
-  def flip(self, volumeNode, transformMatrix):
-    transform = slicer.vtkMRMLTransformNode()
-    transform.SetName('FlipTransformation')
-    slicer.mrmlScene.AddNode(transform)
-    transform.SetMatrixTransformFromParent(transformMatrix)
-    
-    volumeNode.SetAndObserveTransformNodeID(transform.GetID())
-    slicer.vtkSlicerTransformLogic().hardenTransform(volumeNode)
-    slicer.mrmlScene.RemoveNode(transform)
-    
   def getActiveCell(self):
     tableView=slicer.app.layoutManager().tableWidget(0).tableView()
     if bool(tableView.selectedIndexes()):
@@ -611,7 +485,7 @@ class INHSToolsLogic(ScriptedLoadableModuleLogic):
       # Since no files have a status, write to file without reloading
       slicer.util.saveNode(table, tableFilePath)
      
-class INHSToolsTest(ScriptedLoadableModuleTest):
+class LandmarkFlowTest(ScriptedLoadableModuleTest):
   """
   This is the test case for your scripted module.
   Uses ScriptedLoadableModuleTest base class, available at:
@@ -627,9 +501,9 @@ class INHSToolsTest(ScriptedLoadableModuleTest):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.test_INHSTools1()
+    self.test_LandmarkFlow1()
 
-  def test_INHSTools1(self):
+  def test_LandmarkFlow1(self):
     """ Ideally you should have several levels of tests.  At the lowest level
     tests should exercise the functionality of the logic with different inputs
     (both valid and invalid).  At higher levels your tests should emulate the
@@ -661,6 +535,6 @@ class INHSToolsTest(ScriptedLoadableModuleTest):
     self.delayDisplay('Finished with download and loading')
 
     volumeNode = slicer.util.getNode(pattern="FA")
-    logic = INHSToolsLogic()
+    logic = LandmarkFlowLogic()
     self.assertIsNotNone( logic.hasImageData(volumeNode) )
     self.delayDisplay('Test passed!')
