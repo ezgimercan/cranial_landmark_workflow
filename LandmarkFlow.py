@@ -26,7 +26,7 @@ class LandmarkFlow(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "Landmark Workflow"
+        self.parent.title = "CranIAL CT Annotation"
         self.parent.categories = ["SlicerMorph.SlicerMorph Labs"]
         self.parent.dependencies = []
         self.parent.contributors = [
@@ -167,6 +167,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         #
         # Import Volume Button
         #
+        # TODO When to activate/deactivate this button
         self.importVolumeButton = qt.QPushButton("Import image")
         self.importVolumeButton.toolTip = "Import the image selected in the table"
         self.importVolumeButton.enabled = False
@@ -226,8 +227,6 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         # connections
         self.selectorButton.connect('clicked(bool)', self.onLoadTable)
         self.tableSelector.connect("validInputChanged(bool)", self.onSelectTablePath)
-        self.inputDirSelector.connect("validInputChanged(bool)", self.onSelectInputPath)
-        self.landmarkDirSelector.connect("validInputChanged(bool)", self.onSelectLandmarkPath)
         self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
         self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
         self.launchMarkupsButton.connect('clicked(bool)', self.onLaunchMarkups)
@@ -283,20 +282,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         else:
             self.selectorButton.enabled = False
 
-    def onSelectInputPath(self):
-        print("InputPath changed" + self.inputDirSelector.currentPath)
-        # if (self.inputDirSelector.currentPath):
-        #   imagePathStr = self.inputDirSelector.currentPath + "/"
-        # else:
-        #   self.selectorButton.enabled = False
 
-    def onSelectLandmarkPath(self):
-        print("InputPath changed" + self.landmarkDirSelector.currentPath)
-
-        # if(self.landmarkDirSelector.currentPath):
-        #   outputPathStr = self.landmarkDirSelector.currentPath + "/"
-        # else:
-        #   self.selectorButton.enabled  = False
 
     def onLoadTable(self):
         if hasattr(self, 'fileTable'):
@@ -350,6 +336,13 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 threeDView.lookFromAxis(5)
 
             else:
+                msg = qt.QMessageBox()
+                msg.setIcon(qt.QMessageBox.Warning)
+                msg.setText(
+                    "Image \"" + logic.getActiveCell() + "\" is not in folder \"" + self.inputDirSelector.currentPath + "\". \nDid you set the \"Image directory\"?")
+                msg.setWindowTitle("Image cannot be loaded")
+                msg.setStandardButtons(qt.QMessageBox.Ok)
+                msg.exec_()
                 logging.debug("Error loading associated files.")
 
         else:
@@ -360,8 +353,17 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             fiducialName = os.path.splitext(self.activeCellString)[0]
             fiducialName = os.path.splitext(fiducialName)[0]
             fiducialOutput = os.path.join(self.landmarkDirSelector.currentPath, fiducialName + '.fcsv')
-            slicer.util.saveNode(self.fiducialNode, fiducialOutput)
-            self.updateTableAndGUI()
+            if slicer.util.saveNode(self.fiducialNode, fiducialOutput):
+                self.updateTableAndGUI()
+            else:
+                msg = qt.QMessageBox()
+                msg.setIcon(qt.QMessageBox.Warning)
+                msg.setText(
+                    "Cannot save the landmark file. \nDid you set the \"Landmark directory\"?")
+                msg.setWindowTitle("Landmark file cannot be saved")
+                msg.setStandardButtons(qt.QMessageBox.Ok)
+                # msg.buttonClicked.connect(msgbtn)
+                msg.exec_()
 
     def updateTableAndGUI(self):
         self.updateStatus(self.activeRow, 'Complete')
