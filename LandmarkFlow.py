@@ -374,7 +374,10 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             slicer.mrmlScene.RemoveNode(self.segmentationNode)
         if hasattr(self, 'labelMap'):
             slicer.mrmlScene.RemoveNode(self.labelMap)
-        # TODO remove Annotation ROI
+        annotationROIs = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationROINode")
+        for roi in annotationROIs:
+            slicer.mrmlScene.RemoveNode(roi)
+
         self.selectorButton.enabled = bool(self.tableSelector.currentPath)
         self.importVolumeButton.enabled = True
         self.launchMarkupsButton.enabled = False
