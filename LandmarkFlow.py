@@ -1,6 +1,7 @@
 import SimpleITK as sitk
 import sitkUtils
 import os
+import getpass
 import unittest
 import vtk, qt, ctk, slicer
 from slicer.ScriptedLoadableModule import *
@@ -8,14 +9,11 @@ import logging
 import numpy as np
 import string
 from pathlib import Path
+from datetime import date
 
 #
 # LandmarkFlow
 #
-# define global variable for node management
-# imagePathStr = os.environ.get('SEGMENTED_DIR', str(Path.home()))
-# outputPathStr = os.environ.get('CSV_DIR', str(Path.home()))
-# segoutputPathStr = os.environ.get('CSV_DIR',str(Path.home()))
 labs = os.environ.get('labs', 'unknown_lab')
 
 
@@ -189,16 +187,16 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         segmentTabLayout = qt.QFormLayout(segmentTab)
 
         tabsWidget.addTab(landmarkTab, "Landmark")
-        tabsWidget.addTab(segmentTab, "Segment")
+        # tabsWidget.addTab(segmentTab, "Segment")
         annotationsLayout.addWidget(tabsWidget)
 
         #
-        # Markups Launch Button
+        # Markups Incomplete Button
         #
-        self.launchMarkupsButton = qt.QPushButton("Start landmarking")
-        self.launchMarkupsButton.toolTip = "Pop up the markups view for placing landmarks"
-        self.launchMarkupsButton.enabled = False
-        landmarkTabLayout.addRow(self.launchMarkupsButton)
+        self.markIncompleteButton = qt.QPushButton("Marked Incomplete")
+        self.markIncompleteButton.toolTip = "Click if the sample cannot be landmarked - no landmark file will be saved."
+        self.markIncompleteButton.enabled = False
+        landmarkTabLayout.addRow(self.markIncompleteButton)
 
         #
         # Export Landmarks Button
@@ -229,7 +227,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.tableSelector.connect("validInputChanged(bool)", self.onSelectTablePath)
         self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
         self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
-        self.launchMarkupsButton.connect('clicked(bool)', self.onLaunchMarkups)
+        self.markIncompleteButton.connect('clicked(bool)', self.onMarkIncomplete)
         self.startSegmentationButton.connect('clicked(bool)', self.onStartSegmentation)
         self.exportSegmentationButton.connect('clicked(bool)', self.onExportSegmentation)
 
@@ -254,12 +252,11 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         else:
             logging.debug("No valid segmentation to export.")
 
-    def onLaunchMarkups(self):
-        self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
-        slicer.util.selectModule('Markups')
-        self.exportLandmarksButton.enabled = True
+    def onMarkIncomplete(self):
+        # TODO ask for a reason, maybe a text box?
+        self.updateTableAndGUI(False)
 
-    def updateStatus(self, index, string):
+    def updateStatus(self, index, status_string):
         # refresh table from file, update the status column, and save
         name = self.fileTable.GetName()
         slicer.mrmlScene.RemoveNode(self.fileTable)
@@ -269,10 +266,15 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         logic = LandmarkFlowLogic()
         logic.hideCompletedSamples(self.fileTable)
         statusColumn = self.fileTable.GetTable().GetColumnByName('Status')
-        statusColumn.SetValue(index - 1, string)
+        statusColumn.SetValue(index - 1, status_string)
+
         # set the user to the lab based on an environment variable
         userColumn = self.fileTable.GetTable().GetColumnByName('User')
-        userColumn.SetValue(index - 1, labs)
+        userColumn.SetValue(index - 1, getpass.getuser())
+
+        dateColumn = self.fileTable.GetTable().GetColumnByName('Date')
+        dateColumn.SetValue(index - 1, str(date.today()))
+
         self.fileTable.GetTable().Modified()  # update table view
         slicer.util.saveNode(self.fileTable, self.tableSelector.currentPath)
 
@@ -302,6 +304,13 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             self.fileTable.SetLocked(True)
             self.fileTable.GetTable().Modified()  # update table view
         else:
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setText(
+                "Cannot find the file \"" + self.tableSelector.currentPath + " \".")
+            msg.setWindowTitle("Table cannot be loaded")
+            msg.setStandardButtons(qt.QMessageBox.Ok)
+            msg.exec_()
             self.importButton.enabled = False
 
     def onImportVolume(self):
@@ -312,8 +321,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             volumePath = os.path.join(self.inputDirSelector.currentPath, self.activeCellString)
             self.volumeNode = logic.runImport(volumePath)
             if bool(self.volumeNode):
-                self.launchMarkupsButton.enabled = True
-                self.startSegmentationButton.enabled = True
+                self.markIncompleteButton.enabled = True
+                # self.startSegmentationButton.enabled = True
                 self.activeRow = logic.getActiveCellRow()
                 # self.updateStatus(self.activeRow, 'Processing') # TODO uncomment this
 
@@ -334,6 +343,10 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 threeDView = threeDWidget.threeDView()
                 threeDView.resetFocalPoint()
                 threeDView.lookFromAxis(5)
+
+                self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
+                slicer.util.selectModule('Markups')
+                self.exportLandmarksButton.enabled = True
 
             else:
                 msg = qt.QMessageBox()
@@ -365,8 +378,14 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 # msg.buttonClicked.connect(msgbtn)
                 msg.exec_()
 
-    def updateTableAndGUI(self):
-        self.updateStatus(self.activeRow, 'Complete')
+    #
+    # Call after current landmark is finished.
+    #
+    def updateTableAndGUI(self, complete=True):
+        if complete:
+            self.updateStatus(self.activeRow, 'Complete')
+        else:
+            self.updateStatus(self.activeRow, 'Incomplete')
         # clean up
         if hasattr(self, 'fiducialNode'):
             slicer.mrmlScene.RemoveNode(self.fiducialNode)
@@ -382,10 +401,10 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.selectorButton.enabled = bool(self.tableSelector.currentPath)
         self.importVolumeButton.enabled = True
-        self.launchMarkupsButton.enabled = False
+        self.markIncompleteButton.enabled = False
         self.exportLandmarksButton.enabled = False
-        self.startSegmentationButton.enabled = False
-        self.exportSegmentationButton.enabled = False
+        # self.startSegmentationButton.enabled = False
+        # self.exportSegmentationButton.enabled = False
 
 
 class LogDataObject:
