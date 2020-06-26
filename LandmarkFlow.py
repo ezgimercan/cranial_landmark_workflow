@@ -7,13 +7,14 @@ from slicer.ScriptedLoadableModule import *
 import logging
 import numpy as np
 import string
+from pathlib import Path
 #
 # LandmarkFlow
 #
 #define global variable for node management
-imagePathStr = os.environ.get('SEGMENTED_DIR','/home/ezgi/mnt/hopper_r/Clinical_CT/nifti/')
-outputPathStr = os.environ.get('CSV_DIR','/segmented/fcsv/')
-segoutputPathStr = os.environ.get('CSV_DIR','/segmented/Segmentations/')
+#imagePathStr = os.environ.get('SEGMENTED_DIR', str(Path.home()))
+#outputPathStr = os.environ.get('CSV_DIR', str(Path.home()))
+#segoutputPathStr = os.environ.get('CSV_DIR',str(Path.home()))
 labs = os.environ.get('labs','unknown_lab')
 
 class LandmarkFlow(ScriptedLoadableModule):
@@ -28,21 +29,19 @@ class LandmarkFlow(ScriptedLoadableModule):
     self.parent.dependencies = []
     self.parent.contributors = ["Murat Maga (UW), Sara Rolfe (UW), Ezgi Mercan (SCH)"] # replace with "Firstname Lastname (Organization)"
     self.parent.helpText = """
-This module imports an image database (csv file) from which individual fish images from INHS collection can be loaded into 3D Slicer for landmarking.
+This module imports an image database (csv file) from which individual images can be loaded into 3D Slicer for landmarking.
 <ol> 
-<li>Navigate to <b>/segmented</b> folder, and then load the metadata.csv file in by clicking the <b>Load Table</b></li>
-<li>Click on the fish filename from the table and hit <b>Import Image</b></li>
-<li>Set the scale of the image (INHS DB only) to 1, 1, 1. Remember to adjust the field of view to bring the fish back to view. </li>
-<li>If necessary flip the image along the X-axis to create a left-facing fish. </li>
-<li>Use the fiducials markup to digitize the landmarks in the sequence agreed. You can use the <b>Pop up Markups</b> button to bring the Marksup module as a separate window.</li> 
+<li>Navigate to project folder, and then load the .csv file in by clicking the <b>Load Table</b></li>
+<li>Click on the filename from the table and hit <b>Import Image</b></li>
+<li>Use the fiducials markup to digitize the landmarks in the sequence agreed.</li> 
 <li>Once digitization is done, hit the <b>Export Landmarks</b> button to save the 
-landmarks into the correct output folder automatically. This will remove the fish from the table view</li>
-<li>You can now start the next unprocessed specimen</li>
+landmarks into the correct output folder automatically. This will remove the image from the table view.</li>
+<li>You can now start the next unprocessed image.</li>
 </ol> 
 """
     self.parent.acknowledgementText = """
-This module was developed by Sara Rolfe and Murat Maga, for the NSF HDR  grant, "Biology Guided Neural Networks" (Award Number: 1939505).
-https://www.nsf.gov/awardsearch/showAward?AWD_ID=1939505&HistoricalAwards=false  
+Modified by Ezgi Mercan for internal Seattle Children's Hospital Craniofacial Image Analysis Lab use. 
+The original module was developed by Sara Rolfe and Murat Maga, for the NSF HDR  grant, "Biology Guided Neural Networks" (Award Number: 1939505).
 """ 
 
 #
@@ -141,14 +140,32 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
     IOFormLayout.addWidget(tableSelectorLable,1,1)
     IOFormLayout.addWidget(self.tableSelector,1,2)
     IOFormLayout.addWidget(self.selectorButton,1,3)
-    
+
+    imageDirLabel = qt.QLabel("Image directory: ")
+    self.inputDirSelector = ctk.ctkPathLineEdit()
+    self.inputDirSelector.setCurrentPath(str(Path.home()))
+    self.inputDirSelector.filters = ctk.ctkPathLineEdit.Dirs
+    self.inputDirSelector.options = ctk.ctkPathLineEdit.ShowDirsOnly
+    self.inputDirSelector.setToolTip("Select input directory with images")
+    IOFormLayout.addWidget(imageDirLabel, 2, 1)
+    IOFormLayout.addWidget(self.inputDirSelector, 2, 2, 1, 2)
+
+    landmarkDirLabel = qt.QLabel("Landmark directory: ")
+    self.landmarkDirSelector = ctk.ctkPathLineEdit()
+    self.landmarkDirSelector.setCurrentPath(str(Path.home()))
+    self.landmarkDirSelector.filters = ctk.ctkPathLineEdit.Dirs
+    self.landmarkDirSelector.options = ctk.ctkPathLineEdit.ShowDirsOnly
+    self.landmarkDirSelector.setToolTip("Select output directory to save landmarks")
+    IOFormLayout.addWidget(landmarkDirLabel, 3, 1)
+    IOFormLayout.addWidget(self.landmarkDirSelector, 3, 2, 1, 2)
+
     #
     # Import Volume Button
     #
     self.importVolumeButton = qt.QPushButton("Import image")
     self.importVolumeButton.toolTip = "Import the image selected in the table"
     self.importVolumeButton.enabled = False
-    IOFormLayout.addWidget(self.importVolumeButton,2,1,1,3)
+    IOFormLayout.addWidget(self.importVolumeButton,4,1,1,3)
     
     #
     # Annotations area
@@ -204,6 +221,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
     # connections
     self.selectorButton.connect('clicked(bool)', self.onLoadTable)
     self.tableSelector.connect("validInputChanged(bool)", self.onSelectTablePath)
+    self.inputDirSelector.connect("validInputChanged(bool)", self.onSelectInputPath)
+    self.landmarkDirSelector.connect("validInputChanged(bool)", self.onSelectLandmarkPath)
     self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
     self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
     self.launchMarkupsButton.connect('clicked(bool)', self.onLaunchMarkups)
@@ -226,7 +245,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
   def onExportSegmentation(self):
     if hasattr(self,'segmentationNode'):
       segmentationName = os.path.splitext(self.activeCellString)[0]
-      segmentationOutput = os.path.join(segoutputPathStr, segmentationName +'.nrrd')
+      segmentationOutput = os.path.join(self.landmarkDirSelector.currentPath, segmentationName +'.nrrd')
       slicer.util.saveNode(self.segmentationNode, segmentationOutput)
       self.updateTableAndGUI()
     else:
@@ -234,10 +253,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
       
   def onLaunchMarkups(self):
     self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
-    markups_widget = slicer.modules.markups.createNewWidgetRepresentation()
-    markups_widget.setMRMLScene(slicer.mrmlScene)
-    markups_widget.show()
-    markups_widget.enter()
+    slicer.util.selectModule('Markups')
     self.exportLandmarksButton.enabled = True
     
   def updateStatus(self, index, string):
@@ -262,6 +278,22 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
       self.selectorButton.enabled = True
     else:
       self.selectorButton.enabled  = False
+
+  def onSelectInputPath(self):
+    print("InputPath changed" + self.inputDirSelector.currentPath)
+    # if (self.inputDirSelector.currentPath):
+    #   imagePathStr = self.inputDirSelector.currentPath + "/"
+    # else:
+    #   self.selectorButton.enabled = False
+
+
+  def onSelectLandmarkPath(self):
+    print("InputPath changed" + self.landmarkDirSelector.currentPath)
+
+    # if(self.landmarkDirSelector.currentPath):
+    #   outputPathStr = self.landmarkDirSelector.currentPath + "/"
+    # else:
+    #   self.selectorButton.enabled  = False
   
   def onLoadTable(self):
     if hasattr(self,'fileTable'):
@@ -284,16 +316,24 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
   
 
   def onImportVolume(self):
+
     logic = LandmarkFlowLogic()
     self.activeCellString = logic.getActiveCell()
     if bool(self.activeCellString):
-
-      self.volumeNode = logic.runImport(self.activeCellString)
+      volumePath = os.path.join(self.inputDirSelector.currentPath, self.activeCellString)
+      self.volumeNode = logic.runImport(volumePath)
       if bool(self.volumeNode):
         self.launchMarkupsButton.enabled = True
         self.startSegmentationButton.enabled = True
         self.activeRow = logic.getActiveCellRow()
-        self.updateStatus(self.activeRow, 'Processing')
+        #self.updateStatus(self.activeRow, 'Processing') # TODO uncomment this
+
+        # Set window/level of the volume to bone
+        displayNode = self.volumeNode.GetDisplayNode()
+        displayNode.AutoWindowLevelOff()
+        displayNode.SetWindow(1000)
+        displayNode.SetLevel(400)
+
 
         # 3D render volume
         volRenLogic = slicer.modules.volumerendering.logic()
@@ -316,7 +356,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
   def onExportLandmarks(self):
     if hasattr(self, 'fiducialNode'):
       fiducialName = os.path.splitext(self.activeCellString)[0]
-      fiducialOutput = os.path.join(outputPathStr, fiducialName+'.fcsv')
+      fiducialName = os.path.splitext(fiducialName)[0]
+      fiducialOutput = os.path.join(self.landmarkDirSelector.currentPath, fiducialName+'.fcsv')
       slicer.util.saveNode(self.fiducialNode, fiducialOutput)   
       self.updateTableAndGUI()         
       
@@ -331,13 +372,13 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
       slicer.mrmlScene.RemoveNode(self.segmentationNode)
     if hasattr(self, 'labelMap'):
       slicer.mrmlScene.RemoveNode(self.labelMap)
-    self.selectorButton.enabled  = bool(self.tableSelector.currentPath)
+    # TODO remove Annotation ROI
+    self.selectorButton.enabled = bool(self.tableSelector.currentPath)
     self.importVolumeButton.enabled = True
     self.launchMarkupsButton.enabled = False
     self.exportLandmarksButton.enabled = False
     self.startSegmentationButton.enabled = False
     self.exportSegmentationButton.enabled = False
-    #self.applySpacingButton.enabled = False
    
 class LogDataObject:
   """This class i
@@ -450,8 +491,8 @@ class LandmarkFlowLogic(ScriptedLoadableModuleLogic):
     else:  
       return False
     
-  def runImport(self,volumeFilename):
-    volumePath = os.path.join(imagePathStr, volumeFilename)
+  def runImport(self, volumePath):
+    print(volumePath)
     properties = {'singleFile': True}
     try:
       volumeNode = slicer.util.loadVolume(volumePath, properties)
