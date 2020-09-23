@@ -162,6 +162,14 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         IOFormLayout.addWidget(landmarkDirLabel, 3, 1)
         IOFormLayout.addWidget(self.landmarkDirSelector, 3, 2, 1, 2)
 
+        landmarkTemplateSelectorLabel = qt.QLabel("Landmark template: ")
+        self.landmarkTemplateSelector = ctk.ctkPathLineEdit()
+        self.landmarkTemplateSelector.nameFilters = ["*.csv", "*.txt"]
+        self.landmarkTemplateSelector.setToolTip("Select landmark template file")
+
+        IOFormLayout.addWidget(landmarkTemplateSelectorLabel, 4, 1)
+        IOFormLayout.addWidget(self.landmarkTemplateSelector, 4, 2, 1, 2)
+
         #
         # Import Volume Button
         #
@@ -169,7 +177,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.importVolumeButton = qt.QPushButton("Import image")
         self.importVolumeButton.toolTip = "Import the image selected in the table"
         self.importVolumeButton.enabled = False
-        IOFormLayout.addWidget(self.importVolumeButton, 4, 1, 1, 3)
+        IOFormLayout.addWidget(self.importVolumeButton, 5, 1, 1, 3)
 
         #
         # Annotations area
@@ -207,6 +215,30 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         landmarkTabLayout.addRow(self.exportLandmarksButton)
 
         #
+        # Frankfort Alignment Button
+        #
+        self.frankfortAlignment = qt.QPushButton("Frankfort Alignment")
+        self.frankfortAlignment.toolTip = "Align to Frankfort"
+        self.frankfortAlignment.enabled = False
+        landmarkTabLayout.addRow(self.frankfortAlignment)
+
+        #
+        # Se-Na Alignment Button
+        #
+        self.oSeAlignment = qt.QPushButton("O-Se Alignment")
+        self.oSeAlignment.toolTip = "Align to Opisthion-Sella"
+        self.oSeAlignment.enabled = False
+        landmarkTabLayout.addRow(self.oSeAlignment)
+
+        #
+        # O-Na Alignment Button
+        #
+        self.oNaAlignment = qt.QPushButton("O-Na Alignment")
+        self.oNaAlignment.toolTip = "Align to Opisthion-Nasion"
+        self.oNaAlignment.enabled = False
+        landmarkTabLayout.addRow(self.oNaAlignment)
+
+        #
         # Initiate Segmentation
         #
         self.startSegmentationButton = qt.QPushButton("Start segmenation")
@@ -225,11 +257,15 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         # connections
         self.selectorButton.connect('clicked(bool)', self.onLoadTable)
         self.tableSelector.connect("validInputChanged(bool)", self.onSelectTablePath)
+        self.landmarkTemplateSelector.connect("validInputChanged(bool)", self.onSelectLandmarkTemplatePath)
         self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
         self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
         self.markIncompleteButton.connect('clicked(bool)', self.onMarkIncomplete)
         self.startSegmentationButton.connect('clicked(bool)', self.onStartSegmentation)
         self.exportSegmentationButton.connect('clicked(bool)', self.onExportSegmentation)
+        self.frankfortAlignment.connect('clicked(bool)', self.onFrankfort)
+        self.oSeAlignment.connect('clicked(bool)', self.onOSeaAlignment)
+        self.oNaAlignment.connect('clicked(bool)', self.onONaAlignment)
 
         # Add vertical spacer
         self.layout.addStretch(1)
@@ -251,6 +287,124 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             self.updateTableAndGUI()
         else:
             logging.debug("No valid segmentation to export.")
+
+    def onFrankfort(self):
+
+        for i in range(0, self.fiducialNode.GetNumberOfControlPoints()):
+            self.fiducialNode.SetNthFiducialLabel(i, self.landmarkNames[i])
+
+        logic = LandmarkFlowLogic()
+
+        zyoL_id = np.where(self.landmarkNames == "zyoL")[0][0]
+        poR_id = np.where(self.landmarkNames == "poR")[0][0]
+        poL_id = np.where(self.landmarkNames == "poL")[0][0]
+
+        poR = [0, 0, 0]
+        poL = [0, 0, 0]
+        zyoL = [0, 0, 0]
+
+        self.fiducialNode.GetNthFiducialPosition(poR_id, poR)
+        self.fiducialNode.GetNthFiducialPosition(poL_id, poL)
+        self.fiducialNode.GetNthFiducialPosition(zyoL_id, zyoL)
+        mat = logic.getFrankfortAlignment(poR, poL, zyoL)
+
+        print(mat)
+
+        self.transformNode.SetAndObserveMatrixTransformToParent(mat)
+
+        # Reset ROI
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
+
+        # center view
+        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
+        # center slice view
+        slicer.util.resetSliceViews()
+
+        print("Frankfort Alignment")
+
+    def onOSeaAlignment(self):
+
+        for i in range(0, self.fiducialNode.GetNumberOfControlPoints()):
+            self.fiducialNode.SetNthFiducialLabel(i, self.landmarkNames[i])
+
+        logic = LandmarkFlowLogic()
+
+        o_id = np.where(self.landmarkNames == "o")[0][0]
+        se_id = np.where(self.landmarkNames == "se")[0][0]
+        poR_id = np.where(self.landmarkNames == "poR")[0][0]
+        poL_id = np.where(self.landmarkNames == "poL")[0][0]
+
+        poR = [0, 0, 0]
+        poL = [0, 0, 0]
+        se = [0, 0, 0]
+        o = [0, 0, 0]
+
+        self.fiducialNode.GetNthFiducialPosition(poR_id, poR)
+        self.fiducialNode.GetNthFiducialPosition(poL_id, poL)
+        self.fiducialNode.GetNthFiducialPosition(se_id, se)
+        self.fiducialNode.GetNthFiducialPosition(o_id, o)
+        mat = logic.getOSeAlignment(poR, poL, se, o)
+
+        print(mat)
+
+        self.transformNode.SetAndObserveMatrixTransformToParent(mat)
+
+        # Reset ROI
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
+
+        # center view
+        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
+        # center slice view
+        slicer.util.resetSliceViews()
+
+        print("O-Se Alignment")
+
+    def onONaAlignment(self):
+        for i in range(0, self.fiducialNode.GetNumberOfControlPoints()):
+            self.fiducialNode.SetNthFiducialLabel(i, self.landmarkNames[i])
+
+        logic = LandmarkFlowLogic()
+
+        o_id = np.where(self.landmarkNames == "o")[0][0]
+        na_id = np.where(self.landmarkNames == "n")[0][0]
+        poR_id = np.where(self.landmarkNames == "poR")[0][0]
+        poL_id = np.where(self.landmarkNames == "poL")[0][0]
+
+        poR = [0, 0, 0]
+        poL = [0, 0, 0]
+        na = [0, 0, 0]
+        o = [0, 0, 0]
+
+        self.fiducialNode.GetNthFiducialPosition(poR_id, poR)
+        self.fiducialNode.GetNthFiducialPosition(poL_id, poL)
+        self.fiducialNode.GetNthFiducialPosition(na_id, na)
+        self.fiducialNode.GetNthFiducialPosition(o_id, o)
+        mat = logic.getOSeAlignment(poR, poL, na, o)
+
+        print(mat)
+
+        self.transformNode.SetAndObserveMatrixTransformToParent(mat)
+
+        # Reset ROI
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
+
+        # center view
+        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
+        # center slice view
+        slicer.util.resetSliceViews()
+        print("O-Na Alignment")
 
     def onMarkIncomplete(self):
         # TODO ask for a reason, maybe a text box?
@@ -284,7 +438,9 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         else:
             self.selectorButton.enabled = False
 
-
+    def onSelectLandmarkTemplatePath(self):
+        with  open(self.landmarkTemplateSelector.currentPath, "r") as file:
+            self.landmarkNames = np.array(file.read().splitlines())
 
     def onLoadTable(self):
         if hasattr(self, 'fileTable'):
@@ -313,8 +469,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             msg.exec_()
             self.importButton.enabled = False
 
-    def onImportVolume(self):
 
+    def onImportVolume(self):
         logic = LandmarkFlowLogic()
         self.activeCellString = logic.getActiveCell()
         if bool(self.activeCellString):
@@ -338,6 +494,12 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 displayNode.SetVisibility(True)
                 displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-AAA'))
 
+                roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
+                displayNode.SetAndObserveROINodeID(roi.GetID())
+                displayNode.CroppingEnabledOn()
+                roi.GetDisplayNode().SetVisibility(1)
+                volRenLogic.FitROIToVolume(displayNode)
+
                 layoutManager = slicer.app.layoutManager()
                 threeDWidget = layoutManager.threeDWidget(0)
                 threeDView = threeDWidget.threeDView()
@@ -347,6 +509,19 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
                 slicer.util.selectModule('Markups')
                 self.exportLandmarksButton.enabled = True
+                self.frankfortAlignment.enabled = True
+                self.oSeAlignment.enabled = True
+                self.oNaAlignment.enabled = True
+
+                matrix = vtk.vtkMatrix4x4()
+                matrix.Identity()
+                transform = vtk.vtkTransform()
+                transform.SetMatrix(matrix)
+                self.transformNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLTransformNode', 'Alignment Transform')
+                self.transformNode.SetAndObserveTransformToParent(transform)
+
+                self.volumeNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
+                self.fiducialNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
 
             else:
                 msg = qt.QMessageBox()
@@ -560,6 +735,64 @@ class LandmarkFlowLogic(ScriptedLoadableModuleLogic):
             # Since no files have a status, write to file without reloading
             slicer.util.saveNode(table, tableFilePath)
 
+    # Frankfort alignment
+    def getFrankfortAlignment(self, poR, poL, zyoL):
+
+        po = [poR[0] - poL[0], poR[1] - poL[1], poR[2] - poL[2]]
+
+        vTransform = vtk.vtkTransform()
+        vTransform.RotateZ(-np.arctan2(po[1], po[0]) * 180 / np.pi)
+
+        po1 = vTransform.TransformPoint(poR)
+        po2 = vTransform.TransformPoint(poL)
+        zyo = vTransform.TransformPoint(zyoL)
+
+        po = [po1[0] - po2[0], po1[1] - po2[1], po1[2] - po2[2]]
+
+        vTransform2 = vtk.vtkTransform()
+        vTransform2.RotateY(np.arctan2(po[2], po[0]) * 180 / np.pi)
+
+        po1 = vTransform2.TransformPoint(po1)
+        po2 = vTransform2.TransformPoint(po2)
+        zyo = vTransform2.TransformPoint(zyo)
+
+        po_zyo = [zyo[0] - (po1[0] + po2[0]) / 2, zyo[1] - (po1[1] + po2[1]) / 2, zyo[2] - (po1[2] + po2[2]) / 2]
+
+        vTransform3 = vtk.vtkTransform()
+        vTransform3.RotateX(-np.arctan2(po_zyo[2], po_zyo[1]) * 180 / np.pi)
+
+        vTransform3.Concatenate(vTransform2)
+        vTransform3.Concatenate(vTransform)
+        return vTransform3.GetMatrix()
+
+    def getOSeAlignment(self, poR, poL, se, o):
+
+        po = [poR[0] - poL[0], poR[1] - poL[1], poR[2] - poL[2]]
+
+        vTransform = vtk.vtkTransform()
+        vTransform.RotateZ(-np.arctan2(po[1], po[0]) * 180 / np.pi)
+
+        po1 = vTransform.TransformPoint(poR)
+        po2 = vTransform.TransformPoint(poL)
+        se1 = vTransform.TransformPoint(se)
+        o1 = vTransform.TransformPoint(o)
+
+        po = [po1[0] - po2[0], po1[1] - po2[1], po1[2] - po2[2]]
+
+        vTransform2 = vtk.vtkTransform()
+        vTransform2.RotateY(np.arctan2(po[2], po[0]) * 180 / np.pi)
+
+        se1 = vTransform2.TransformPoint(se1)
+        o1 = vTransform2.TransformPoint(o1)
+
+        o_se = [se1[0] - o1[0], se1[1] - o1[1], se1[2] - o1[2]]
+
+        vTransform3 = vtk.vtkTransform()
+        vTransform3.RotateX(-np.arctan2(o_se[2], o_se[1]) * 180 / np.pi)
+
+        vTransform3.Concatenate(vTransform2)
+        vTransform3.Concatenate(vTransform)
+        return vTransform3.GetMatrix()
 
 class LandmarkFlowTest(ScriptedLoadableModuleTest):
     """
