@@ -130,45 +130,19 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         #
         # Table volume selector
         #
-        tableSelectorLable = qt.QLabel("Input table: ")
+        tableSelectorLable = qt.QLabel("Project File: ")
         self.tableSelector = ctk.ctkPathLineEdit()
-        self.tableSelector.nameFilters = ["*.csv"]
-        self.tableSelector.setToolTip("Select table with filenames to process")
+        self.tableSelector.nameFilters = ["*.txt"]
+        self.tableSelector.setToolTip("Select project file")
         # IOFormLayout.addRow("Input table: ", self.tableSelector)
 
-        self.selectorButton = qt.QPushButton("Load Table")
-        self.selectorButton.toolTip = "Load the table of image filenames to process"
+        self.selectorButton = qt.QPushButton("Load")
+        self.selectorButton.toolTip = "Load the project file"
         self.selectorButton.enabled = False
         # IOFormLayout.addRow(self.selectorButton)
         IOFormLayout.addWidget(tableSelectorLable, 1, 1)
         IOFormLayout.addWidget(self.tableSelector, 1, 2)
         IOFormLayout.addWidget(self.selectorButton, 1, 3)
-
-        imageDirLabel = qt.QLabel("Image directory: ")
-        self.inputDirSelector = ctk.ctkPathLineEdit()
-        self.inputDirSelector.setCurrentPath(str(Path.home()))
-        self.inputDirSelector.filters = ctk.ctkPathLineEdit.Dirs
-        self.inputDirSelector.options = ctk.ctkPathLineEdit.ShowDirsOnly
-        self.inputDirSelector.setToolTip("Select input directory with images")
-        IOFormLayout.addWidget(imageDirLabel, 2, 1)
-        IOFormLayout.addWidget(self.inputDirSelector, 2, 2, 1, 2)
-
-        landmarkDirLabel = qt.QLabel("Landmark directory: ")
-        self.landmarkDirSelector = ctk.ctkPathLineEdit()
-        self.landmarkDirSelector.setCurrentPath(str(Path.home()))
-        self.landmarkDirSelector.filters = ctk.ctkPathLineEdit.Dirs
-        self.landmarkDirSelector.options = ctk.ctkPathLineEdit.ShowDirsOnly
-        self.landmarkDirSelector.setToolTip("Select output directory to save landmarks")
-        IOFormLayout.addWidget(landmarkDirLabel, 3, 1)
-        IOFormLayout.addWidget(self.landmarkDirSelector, 3, 2, 1, 2)
-
-        landmarkTemplateSelectorLabel = qt.QLabel("Landmark template: ")
-        self.landmarkTemplateSelector = ctk.ctkPathLineEdit()
-        self.landmarkTemplateSelector.nameFilters = ["*.csv", "*.txt"]
-        self.landmarkTemplateSelector.setToolTip("Select landmark template file")
-
-        IOFormLayout.addWidget(landmarkTemplateSelectorLabel, 4, 1)
-        IOFormLayout.addWidget(self.landmarkTemplateSelector, 4, 2, 1, 2)
 
         #
         # Import Volume Button
@@ -199,22 +173,6 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         annotationsLayout.addWidget(tabsWidget)
 
         #
-        # Markups Incomplete Button
-        #
-        self.markIncompleteButton = qt.QPushButton("Marked Incomplete")
-        self.markIncompleteButton.toolTip = "Click if the sample cannot be landmarked - no landmark file will be saved."
-        self.markIncompleteButton.enabled = False
-        landmarkTabLayout.addRow(self.markIncompleteButton)
-
-        #
-        # Export Landmarks Button
-        #
-        self.exportLandmarksButton = qt.QPushButton("Export landmarks")
-        self.exportLandmarksButton.toolTip = "Export landmarks placed on the selected image"
-        self.exportLandmarksButton.enabled = False
-        landmarkTabLayout.addRow(self.exportLandmarksButton)
-
-        #
         # Frankfort Alignment Button
         #
         self.frankfortAlignment = qt.QPushButton("Frankfort Alignment")
@@ -237,6 +195,21 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.oNaAlignment.toolTip = "Align to Opisthion-Nasion"
         self.oNaAlignment.enabled = False
         landmarkTabLayout.addRow(self.oNaAlignment)
+        #
+        # Markups Incomplete Button
+        #
+        self.markIncompleteButton = qt.QPushButton("Marked Incomplete")
+        self.markIncompleteButton.toolTip = "Click if the sample cannot be landmarked - no landmark file will be saved."
+        self.markIncompleteButton.enabled = False
+        landmarkTabLayout.addRow(self.markIncompleteButton)
+
+        #
+        # Export Landmarks Button
+        #
+        self.exportLandmarksButton = qt.QPushButton("Export landmarks")
+        self.exportLandmarksButton.toolTip = "Export landmarks placed on the selected image"
+        self.exportLandmarksButton.enabled = False
+        landmarkTabLayout.addRow(self.exportLandmarksButton)
 
         #
         # Initiate Segmentation
@@ -255,9 +228,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         segmentTabLayout.addRow(self.exportSegmentationButton)
 
         # connections
-        self.selectorButton.connect('clicked(bool)', self.onLoadTable)
         self.tableSelector.connect("validInputChanged(bool)", self.onSelectTablePath)
-        self.landmarkTemplateSelector.connect("validInputChanged(bool)", self.onSelectLandmarkTemplatePath)
+        self.selectorButton.connect('clicked(bool)', self.onLoadTable)
         self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
         self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
         self.markIncompleteButton.connect('clicked(bool)', self.onMarkIncomplete)
@@ -299,6 +271,18 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         poR_id = np.where(self.landmarkNames == "poR")[0][0]
         poL_id = np.where(self.landmarkNames == "poL")[0][0]
 
+        if (self.fiducialNode.GetNumberOfFiducials() <= zyoL_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poR_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poL_id):
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setText("All necessary landmarks not marked yet")
+            msg.setWindowTitle("Missing landmark")
+            msg.setStandardButtons(qt.QMessageBox.Ok)
+            msg.exec_()
+            logging.debug("Error loading associated files.")
+            return
+
         poR = [0, 0, 0]
         poL = [0, 0, 0]
         zyoL = [0, 0, 0]
@@ -337,6 +321,18 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         se_id = np.where(self.landmarkNames == "se")[0][0]
         poR_id = np.where(self.landmarkNames == "poR")[0][0]
         poL_id = np.where(self.landmarkNames == "poL")[0][0]
+
+        if (self.fiducialNode.GetNumberOfFiducials() <= se_id) | (self.fiducialNode.GetNumberOfFiducials() <= o_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poR_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poL_id):
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setText("All necessary landmarks not marked yet")
+            msg.setWindowTitle("Missing landmark")
+            msg.setStandardButtons(qt.QMessageBox.Ok)
+            msg.exec_()
+            logging.debug("Error loading associated files.")
+            return
 
         poR = [0, 0, 0]
         poL = [0, 0, 0]
@@ -378,6 +374,18 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         poR_id = np.where(self.landmarkNames == "poR")[0][0]
         poL_id = np.where(self.landmarkNames == "poL")[0][0]
 
+        if (self.fiducialNode.GetNumberOfFiducials() <= se_id) | (self.fiducialNode.GetNumberOfFiducials() <= o_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poR_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poL_id):
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setText("All necessary landmarks not marked yet")
+            msg.setWindowTitle("Missing landmark")
+            msg.setStandardButtons(qt.QMessageBox.Ok)
+            msg.exec_()
+            logging.debug("Error loading associated files.")
+            return
+
         poR = [0, 0, 0]
         poL = [0, 0, 0]
         na = [0, 0, 0]
@@ -414,7 +422,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         # refresh table from file, update the status column, and save
         name = self.fileTable.GetName()
         slicer.mrmlScene.RemoveNode(self.fileTable)
-        self.fileTable = slicer.util.loadNodeFromFile(self.tableSelector.currentPath, 'TableFile')
+        self.fileTable = slicer.util.loadNodeFromFile(self.tablepath, 'TableFile')
         self.fileTable.SetLocked(True)
         self.fileTable.SetName(name)
         logic = LandmarkFlowLogic()
@@ -430,7 +438,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         dateColumn.SetValue(index - 1, str(date.today()))
 
         self.fileTable.GetTable().Modified()  # update table view
-        slicer.util.saveNode(self.fileTable, self.tableSelector.currentPath)
+        slicer.util.saveNode(self.fileTable, self.tablepath)
 
     def onSelectTablePath(self):
         if (self.tableSelector.currentPath):
@@ -438,22 +446,26 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         else:
             self.selectorButton.enabled = False
 
-    def onSelectLandmarkTemplatePath(self):
-        with  open(self.landmarkTemplateSelector.currentPath, "r") as file:
-            self.landmarkNames = np.array(file.read().splitlines())
-
     def onLoadTable(self):
         if hasattr(self, 'fileTable'):
-            tableName = self.fileTable.GetName()
             slicer.mrmlScene.RemoveNode(self.fileTable)
-            self.fileTable = slicer.util.loadNodeFromFile(self.tableSelector.currentPath, 'TableFile')
-            self.fileTable.SetName(tableName)
-        else:
-            self.fileTable = slicer.util.loadNodeFromFile(self.tableSelector.currentPath, 'TableFile')
-        if bool(self.fileTable):
+
+        with open(self.tableSelector.currentPath, "r") as file:
+            paths = file.read().splitlines()
+
+        if len(paths) >= 4:
+            self.tablepath = paths[0]
+            self.fileTable = slicer.util.loadNodeFromFile(self.tablepath, 'TableFile')
             logic = LandmarkFlowLogic()
             logic.checkForStatusColumn(self.fileTable,
-                                       self.tableSelector.currentPath)  # if not present adds and saves to file
+                                       paths[0])  # if not present adds and saves to file
+
+            with open(paths[1], "r") as file:
+                self.landmarkNames = np.array(file.read().splitlines())
+
+            self.imagedir = paths[2]
+            self.landmarkdir = paths[3]
+
             self.importVolumeButton.enabled = True
             self.assignLayoutDescription(self.fileTable)
             logic.hideCompletedSamples(self.fileTable)
@@ -463,18 +475,17 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             msg = qt.QMessageBox()
             msg.setIcon(qt.QMessageBox.Warning)
             msg.setText(
-                "Cannot find the file \"" + self.tableSelector.currentPath + " \".")
-            msg.setWindowTitle("Table cannot be loaded")
+                "Check the contents of the project file.")
+            msg.setWindowTitle("Project file error")
             msg.setStandardButtons(qt.QMessageBox.Ok)
             msg.exec_()
-            self.importButton.enabled = False
-
+            self.importVolumeButton.enabled = False
 
     def onImportVolume(self):
         logic = LandmarkFlowLogic()
         self.activeCellString = logic.getActiveCell()
         if bool(self.activeCellString):
-            volumePath = os.path.join(self.inputDirSelector.currentPath, self.activeCellString)
+            volumePath = os.path.join(self.imagedir, self.activeCellString)
             self.volumeNode = logic.runImport(volumePath)
             if bool(self.volumeNode):
                 self.markIncompleteButton.enabled = True
@@ -527,7 +538,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 msg = qt.QMessageBox()
                 msg.setIcon(qt.QMessageBox.Warning)
                 msg.setText(
-                    "Image \"" + logic.getActiveCell() + "\" is not in folder \"" + self.inputDirSelector.currentPath + "\". \nDid you set the \"Image directory\"?")
+                    "Image \"" + logic.getActiveCell() + "\" is not in folder \"" + self.imagedir + ".")
                 msg.setWindowTitle("Image cannot be loaded")
                 msg.setStandardButtons(qt.QMessageBox.Ok)
                 msg.exec_()
@@ -540,14 +551,14 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         if hasattr(self, 'fiducialNode'):
             fiducialName = os.path.splitext(self.activeCellString)[0]
             fiducialName = os.path.splitext(fiducialName)[0]
-            fiducialOutput = os.path.join(self.landmarkDirSelector.currentPath, fiducialName + '.fcsv')
+            fiducialOutput = os.path.join(self.landmarkdir, fiducialName + '.fcsv')
             if slicer.util.saveNode(self.fiducialNode, fiducialOutput):
                 self.updateTableAndGUI()
             else:
                 msg = qt.QMessageBox()
                 msg.setIcon(qt.QMessageBox.Warning)
                 msg.setText(
-                    "Cannot save the landmark file. \nDid you set the \"Landmark directory\"?")
+                    "Cannot save the landmark file.")
                 msg.setWindowTitle("Landmark file cannot be saved")
                 msg.setStandardButtons(qt.QMessageBox.Ok)
                 # msg.buttonClicked.connect(msgbtn)
@@ -574,7 +585,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         for roi in annotationROIs:
             slicer.mrmlScene.RemoveNode(roi)
 
-        self.selectorButton.enabled = bool(self.tableSelector.currentPath)
+        self.selectorButton.enabled = bool(self.tablepath)
         self.importVolumeButton.enabled = True
         self.markIncompleteButton.enabled = False
         self.exportLandmarksButton.enabled = False
