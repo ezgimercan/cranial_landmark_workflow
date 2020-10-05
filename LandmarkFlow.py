@@ -58,46 +58,46 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
     def assignLayoutDescription(self, table):
         customLayout = """
-    	<layout type=\"vertical\" split=\"true\" >
-     <item splitSize=\"800\">
-      <layout type=\"vertical\">
-       <item>
-        <view class=\"vtkMRMLViewNode\" singletontag=\"1\">
-         <property name=\"viewlabel\" action=\"default\">1</property>
-        </view>
-       </item>
-       <item>
-        <layout type=\"horizontal\">
-         <item>
-          <view class=\"vtkMRMLSliceNode\" singletontag=\"Red\">
-           <property name=\"orientation\" action=\"default\">Axial</property>
-           <property name=\"viewlabel\" action=\"default\">R</property>
-           <property name=\"viewcolor\" action=\"default\">#F34A33</property>
-          </view>
-         </item>
-		 <item>
-          <view class=\"vtkMRMLSliceNode\" singletontag=\"Green\">
-           <property name=\"orientation\" action=\"default\">Coronal</property>
-           <property name=\"viewlabel\" action=\"default\">G</property>
-           <property name=\"viewcolor\" action=\"default\">#6EB04B</property>
-          </view>
-         </item>
-         <item>
-          <view class=\"vtkMRMLSliceNode\" singletontag=\"Yellow\">
-           <property name=\"orientation\" action=\"default\">Sagittal</property>
-           <property name=\"viewlabel\" action=\"default\">Y</property>
-           <property name=\"viewcolor\" action=\"default\">#EDD54C</property>
-          </view>
-         </item>
+    <layout type=\"horizontal\" split=\"true\" >
+        <item splitSize=\"800\">
+        <layout type=\"vertical\">
+            <item>
+            <view class=\"vtkMRMLViewNode\" singletontag=\"1\">
+            <property name=\"viewlabel\" action=\"default\">1</property>
+            </view>
+            </item>
+            <item>
+            <layout type=\"horizontal\">
+                <item>
+                    <view class=\"vtkMRMLSliceNode\" singletontag=\"Red\">
+                    <property name=\"orientation\" action=\"default\">Axial</property>
+                    <property name=\"viewlabel\" action=\"default\">R</property>
+                    <property name=\"viewcolor\" action=\"default\">#F34A33</property>
+                    </view>
+                </item>
+                <item>
+                    <view class=\"vtkMRMLSliceNode\" singletontag=\"Green\">
+                    <property name=\"orientation\" action=\"default\">Coronal</property>
+                    <property name=\"viewlabel\" action=\"default\">G</property>
+                    <property name=\"viewcolor\" action=\"default\">#6EB04B</property>
+                    </view>
+                </item>
+                <item>
+                    <view class=\"vtkMRMLSliceNode\" singletontag=\"Yellow\">
+                    <property name=\"orientation\" action=\"default\">Sagittal</property>
+                    <property name=\"viewlabel\" action=\"default\">Y</property>
+                    <property name=\"viewcolor\" action=\"default\">#EDD54C</property>
+                    </view>
+                </item>
+            </layout>
+            </item>
         </layout>
-       </item>
-      </layout>
-     </item>
-     <item splitSize=\"200\">
-      <view class=\"vtkMRMLTableViewNode\" singletontag=\"TableView1\">
+        </item>
+        <item splitSize=\"200\">
+        <view class=\"vtkMRMLTableViewNode\" singletontag=\"TableView1\">
         <property name=\"viewlabel\" action=\"default\">T</property>
-      </view>
-     </item>
+        </view>
+        </item>
     </layout>
     """
 
@@ -172,13 +172,39 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         # tabsWidget.addTab(segmentTab, "Segment")
         annotationsLayout.addWidget(tabsWidget)
 
+        windowing = ctk.ctkCollapsibleButton()
+        windowing.text = "Window/Level for Slices"
+        landmarkTabLayout.addWidget(windowing)
+        windowingLayout = qt.QFormLayout(windowing)
+
+        #
+        # Frankfort Alignment Button
+        #
+        self.boneWindow = qt.QPushButton("Bone Window")
+        self.boneWindow.toolTip = "Set Window/Level to Bone Window"
+        self.boneWindow.enabled = False
+        windowingLayout.addRow(self.boneWindow)
+
+        #
+        # Se-Na Alignment Button
+        #
+        self.softTissueWindow = qt.QPushButton("Brain Window")
+        self.softTissueWindow.toolTip = "Set Window/Level to Soft Tissue Window"
+        self.softTissueWindow.enabled = False
+        windowingLayout.addRow(self.softTissueWindow)
+
+        alignments = ctk.ctkCollapsibleButton()
+        alignments.text = "Alignments"
+        landmarkTabLayout.addWidget(alignments)
+        alignmentLayout = qt.QFormLayout(alignments)
+
         #
         # Frankfort Alignment Button
         #
         self.frankfortAlignment = qt.QPushButton("Frankfort Alignment")
         self.frankfortAlignment.toolTip = "Align to Frankfort"
         self.frankfortAlignment.enabled = False
-        landmarkTabLayout.addRow(self.frankfortAlignment)
+        alignmentLayout.addRow(self.frankfortAlignment)
 
         #
         # Se-Na Alignment Button
@@ -186,7 +212,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.oSeAlignment = qt.QPushButton("O-Se Alignment")
         self.oSeAlignment.toolTip = "Align to Opisthion-Sella"
         self.oSeAlignment.enabled = False
-        landmarkTabLayout.addRow(self.oSeAlignment)
+        alignmentLayout.addRow(self.oSeAlignment)
 
         #
         # O-Na Alignment Button
@@ -194,14 +220,20 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.oNaAlignment = qt.QPushButton("O-Na Alignment")
         self.oNaAlignment.toolTip = "Align to Opisthion-Nasion"
         self.oNaAlignment.enabled = False
-        landmarkTabLayout.addRow(self.oNaAlignment)
+        alignmentLayout.addRow(self.oNaAlignment)
+
+        exports = ctk.ctkCollapsibleButton()
+        exports.text = "Export/Skip"
+        landmarkTabLayout.addWidget(exports)
+        exportsLayout = qt.QFormLayout(exports)
+
         #
         # Markups Incomplete Button
         #
         self.markIncompleteButton = qt.QPushButton("Marked Incomplete")
         self.markIncompleteButton.toolTip = "Click if the sample cannot be landmarked - no landmark file will be saved."
         self.markIncompleteButton.enabled = False
-        landmarkTabLayout.addRow(self.markIncompleteButton)
+        exportsLayout.addRow(self.markIncompleteButton)
 
         #
         # Export Landmarks Button
@@ -209,7 +241,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.exportLandmarksButton = qt.QPushButton("Export landmarks")
         self.exportLandmarksButton.toolTip = "Export landmarks placed on the selected image"
         self.exportLandmarksButton.enabled = False
-        landmarkTabLayout.addRow(self.exportLandmarksButton)
+        exportsLayout.addRow(self.exportLandmarksButton)
 
         #
         # Initiate Segmentation
@@ -238,9 +270,25 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.frankfortAlignment.connect('clicked(bool)', self.onFrankfort)
         self.oSeAlignment.connect('clicked(bool)', self.onOSeaAlignment)
         self.oNaAlignment.connect('clicked(bool)', self.onONaAlignment)
+        self.boneWindow.connect('clicked(bool)', self.onBoneWindow)
+        self.softTissueWindow.connect('clicked(bool)', self.onSoftTissueWindow)
 
         # Add vertical spacer
         self.layout.addStretch(1)
+
+    def onBoneWindow(self):
+        # Set window/level of the volume to bone
+        displayNode = self.volumeNode.GetDisplayNode()
+        displayNode.AutoWindowLevelOff()
+        displayNode.SetWindow(1000)
+        displayNode.SetLevel(400)
+
+    def onSoftTissueWindow(self):
+        # Set window/level of the volume to bone
+        displayNode = self.volumeNode.GetDisplayNode()
+        displayNode.AutoWindowLevelOff()
+        displayNode.SetWindow(100)
+        displayNode.SetLevel(50)
 
     def cleanup(self):
         pass
@@ -291,8 +339,6 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.fiducialNode.GetNthFiducialPosition(poL_id, poL)
         self.fiducialNode.GetNthFiducialPosition(zyoL_id, zyoL)
         mat = logic.getFrankfortAlignment(poR, poL, zyoL)
-
-        print(mat)
 
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
@@ -345,8 +391,6 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.fiducialNode.GetNthFiducialPosition(o_id, o)
         mat = logic.getOSeAlignment(poR, poL, se, o)
 
-        print(mat)
-
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
         # Reset ROI
@@ -374,7 +418,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         poR_id = np.where(self.landmarkNames == "poR")[0][0]
         poL_id = np.where(self.landmarkNames == "poL")[0][0]
 
-        if (self.fiducialNode.GetNumberOfFiducials() <= se_id) | (self.fiducialNode.GetNumberOfFiducials() <= o_id) | (
+        if (self.fiducialNode.GetNumberOfFiducials() <= na_id) | (self.fiducialNode.GetNumberOfFiducials() <= o_id) | (
                 self.fiducialNode.GetNumberOfFiducials() <= poR_id) | (
                 self.fiducialNode.GetNumberOfFiducials() <= poL_id):
             msg = qt.QMessageBox()
@@ -396,8 +440,6 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.fiducialNode.GetNthFiducialPosition(na_id, na)
         self.fiducialNode.GetNthFiducialPosition(o_id, o)
         mat = logic.getOSeAlignment(poR, poL, na, o)
-
-        print(mat)
 
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
@@ -505,10 +547,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 displayNode.SetVisibility(True)
                 displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-AAA'))
 
-                roi = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
-                displayNode.SetAndObserveROINodeID(roi.GetID())
                 displayNode.CroppingEnabledOn()
-                roi.GetDisplayNode().SetVisibility(1)
+                displayNode.GetROINode().GetDisplayNode().SetVisibility(True)
                 volRenLogic.FitROIToVolume(displayNode)
 
                 layoutManager = slicer.app.layoutManager()
@@ -517,12 +557,17 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 threeDView.resetFocalPoint()
                 threeDView.lookFromAxis(5)
 
+                # center slice view
+                slicer.util.resetSliceViews()
+
                 self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
                 slicer.util.selectModule('Markups')
                 self.exportLandmarksButton.enabled = True
                 self.frankfortAlignment.enabled = True
                 self.oSeAlignment.enabled = True
                 self.oNaAlignment.enabled = True
+                self.boneWindow.enabled = True
+                self.softTissueWindow.enabled = True
 
                 matrix = vtk.vtkMatrix4x4()
                 matrix.Identity()
@@ -589,6 +634,11 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.importVolumeButton.enabled = True
         self.markIncompleteButton.enabled = False
         self.exportLandmarksButton.enabled = False
+        self.boneWindow.enabled = False
+        self.softTissueWindow.enabled = False
+        self.frankfortAlignment.enabled = False
+        self.oSeAlignment.enabled = False
+        self.oNaAlignment.enabled = False
         # self.startSegmentationButton.enabled = False
         # self.exportSegmentationButton.enabled = False
 
