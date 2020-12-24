@@ -60,13 +60,13 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         customLayout = """
     <layout type=\"horizontal\" split=\"true\" >
         <item splitSize=\"800\">
-        <layout type=\"vertical\">
-            <item>
+        <layout type=\"vertical\"  split=\"true\" >
+            <item splitSize=\"500\">
             <view class=\"vtkMRMLViewNode\" singletontag=\"1\">
             <property name=\"viewlabel\" action=\"default\">1</property>
             </view>
             </item>
-            <item>
+            <item splitSize=\"500\">
             <layout type=\"horizontal\">
                 <item>
                     <view class=\"vtkMRMLSliceNode\" singletontag=\"Red\">
@@ -115,6 +115,9 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
     def setup(self):
         ScriptedLoadableModuleWidget.setup(self)
+
+        self.headSegmentID = None
+        self.skullSegmentId = None
 
         # Instantiate and connect widgets ...
         #
@@ -175,73 +178,142 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         windowing = ctk.ctkCollapsibleButton()
         windowing.text = "Window/Level for Slices"
         landmarkTabLayout.addWidget(windowing)
-        windowingLayout = qt.QFormLayout(windowing)
+        windowingLayout = qt.QGridLayout(windowing)
 
         #
-        # Frankfort Alignment Button
+        # Bone Button
         #
-        self.boneWindow = qt.QPushButton("Bone Window")
+        self.boneWindow = qt.QPushButton("Bone")
         self.boneWindow.toolTip = "Set Window/Level to Bone Window"
         self.boneWindow.enabled = False
-        windowingLayout.addRow(self.boneWindow)
+        windowingLayout.addWidget(self.boneWindow, 1, 1)
 
         #
-        # Se-Na Alignment Button
+        # Soft Tissue
         #
-        self.softTissueWindow = qt.QPushButton("Brain Window")
+        self.softTissueWindow = qt.QPushButton("Brain")
         self.softTissueWindow.toolTip = "Set Window/Level to Soft Tissue Window"
         self.softTissueWindow.enabled = False
-        windowingLayout.addRow(self.softTissueWindow)
+        windowingLayout.addWidget(self.softTissueWindow, 1, 2)
+
+        rendering = ctk.ctkCollapsibleButton()
+        rendering.text = "3D rendering"
+        landmarkTabLayout.addWidget(rendering)
+        renderingLayout = qt.QGridLayout(rendering)
+
+        #
+        # Bone Button
+        #
+        self.boneRender = qt.QPushButton("Bone")
+        self.boneRender.toolTip = "Set Window/Level to Bone Window"
+        self.boneRender.enabled = False
+        renderingLayout.addWidget(self.boneRender, 1, 1)
+
+        #
+        # Bone Button
+        #
+        self.boneRender2 = qt.QPushButton("Bone (infant)")
+        self.boneRender2.toolTip = "Set Window/Level to Bone Window"
+        self.boneRender2.enabled = False
+        renderingLayout.addWidget(self.boneRender2, 1, 2)
+
+        #
+        # Soft Tissue
+        #
+        self.softTissueRender = qt.QPushButton("Soft")
+        self.softTissueRender.toolTip = "Set Window/Level to Soft Tissue Window"
+        self.softTissueRender.enabled = False
+        renderingLayout.addWidget(self.softTissueRender, 1, 3)
+
+        #
+        # Remove Tube Button
+        #
+        self.removeTubeButton = qt.QPushButton("Remove Tube")
+        # self.removeTubeButton.toolTip = "Set Window/Level to Bone Window"
+        self.removeTubeButton.enabled = False
+        renderingLayout.addWidget(self.removeTubeButton, 2, 1)
+
+        #
+        # Remove noise button
+        #
+        self.removeNoiseButton = qt.QPushButton("Remove Noise")
+        # self.removeNoiseButton.toolTip = "Set Window/Level to Bone Window"
+        self.removeNoiseButton.enabled = False
+        renderingLayout.addWidget(self.removeNoiseButton, 2, 2)
+
+        #
+        # Original button
+        #
+        self.originalVolumeButton = qt.QPushButton("Original Volume")
+        # self.removeNoiseButton.toolTip = "Set Window/Level to Bone Window"
+        self.originalVolumeButton.enabled = False
+        renderingLayout.addWidget(self.originalVolumeButton, 2, 3)
 
         alignments = ctk.ctkCollapsibleButton()
         alignments.text = "Alignments"
         landmarkTabLayout.addWidget(alignments)
-        alignmentLayout = qt.QFormLayout(alignments)
+        alignmentLayout = qt.QGridLayout(alignments)
 
         #
-        # Frankfort Alignment Button
+        # Left Frankfort Alignment Button
         #
-        self.frankfortAlignment = qt.QPushButton("Frankfort Alignment")
+        self.frankfortAlignment = qt.QPushButton("Frankfort (L)")
         self.frankfortAlignment.toolTip = "Align to Frankfort"
         self.frankfortAlignment.enabled = False
-        alignmentLayout.addRow(self.frankfortAlignment)
+        alignmentLayout.addWidget(self.frankfortAlignment, 1, 1)
+
+        #
+        # Right Frankfort Alignment Button
+        #
+        self.frankfortAlignmentR = qt.QPushButton("Frankfort (R)")
+        self.frankfortAlignmentR.toolTip = "Align to Frankfort"
+        self.frankfortAlignmentR.enabled = False
+        alignmentLayout.addWidget(self.frankfortAlignmentR, 1, 2)
 
         #
         # Se-Na Alignment Button
         #
-        self.oSeAlignment = qt.QPushButton("O-Se Alignment")
+        self.oSeAlignment = qt.QPushButton("O-Se")
         self.oSeAlignment.toolTip = "Align to Opisthion-Sella"
         self.oSeAlignment.enabled = False
-        alignmentLayout.addRow(self.oSeAlignment)
+        alignmentLayout.addWidget(self.oSeAlignment, 1, 3)
 
         #
         # O-Na Alignment Button
         #
-        self.oNaAlignment = qt.QPushButton("O-Na Alignment")
+        self.oNaAlignment = qt.QPushButton("O-Na")
         self.oNaAlignment.toolTip = "Align to Opisthion-Nasion"
         self.oNaAlignment.enabled = False
-        alignmentLayout.addRow(self.oNaAlignment)
+        alignmentLayout.addWidget(self.oNaAlignment, 1, 4)
 
         exports = ctk.ctkCollapsibleButton()
         exports.text = "Export/Skip"
         landmarkTabLayout.addWidget(exports)
-        exportsLayout = qt.QFormLayout(exports)
+        exportsLayout = qt.QGridLayout(exports)
 
         #
         # Markups Incomplete Button
         #
-        self.markIncompleteButton = qt.QPushButton("Marked Incomplete")
+        self.markIncompleteButton = qt.QPushButton("Incomplete")
         self.markIncompleteButton.toolTip = "Click if the sample cannot be landmarked - no landmark file will be saved."
         self.markIncompleteButton.enabled = False
-        exportsLayout.addRow(self.markIncompleteButton)
+        exportsLayout.addWidget(self.markIncompleteButton, 1, 1)
 
         #
         # Export Landmarks Button
         #
-        self.exportLandmarksButton = qt.QPushButton("Export landmarks")
+        self.exportLandmarksButton = qt.QPushButton("Export")
         self.exportLandmarksButton.toolTip = "Export landmarks placed on the selected image"
         self.exportLandmarksButton.enabled = False
-        exportsLayout.addRow(self.exportLandmarksButton)
+        exportsLayout.addWidget(self.exportLandmarksButton, 1, 2)
+
+        #
+        # Skip Button
+        #
+        self.skipButton = qt.QPushButton("Skip")
+        self.skipButton.toolTip = "Clean scene and skip"
+        self.skipButton.enabled = False
+        exportsLayout.addWidget(self.skipButton, 1, 3)
 
         #
         # Initiate Segmentation
@@ -265,16 +337,131 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.importVolumeButton.connect('clicked(bool)', self.onImportVolume)
         self.exportLandmarksButton.connect('clicked(bool)', self.onExportLandmarks)
         self.markIncompleteButton.connect('clicked(bool)', self.onMarkIncomplete)
+        self.skipButton.connect('clicked(bool)', self.onSkip)
         self.startSegmentationButton.connect('clicked(bool)', self.onStartSegmentation)
         self.exportSegmentationButton.connect('clicked(bool)', self.onExportSegmentation)
         self.frankfortAlignment.connect('clicked(bool)', self.onFrankfort)
+        self.frankfortAlignmentR.connect('clicked(bool)', self.onFrankfort2)
         self.oSeAlignment.connect('clicked(bool)', self.onOSeaAlignment)
         self.oNaAlignment.connect('clicked(bool)', self.onONaAlignment)
         self.boneWindow.connect('clicked(bool)', self.onBoneWindow)
         self.softTissueWindow.connect('clicked(bool)', self.onSoftTissueWindow)
+        self.boneRender.connect('clicked(bool)', self.onBoneRender)
+        self.boneRender2.connect('clicked(bool)', self.onBoneRender2)
+        self.softTissueRender.connect('clicked(bool)', self.onSoftTissueRender)
+
+        self.removeTubeButton.connect('clicked(bool)', self.onRemoveTube)
+        self.removeNoiseButton.connect('clicked(bool)', self.onRemoveNoise)
+        self.originalVolumeButton.connect('clicked(bool)', self.onOriginalVolume)
 
         # Add vertical spacer
         self.layout.addStretch(1)
+        self.softTissueVP = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-SoftTissue.vp",
+                                                         "TransferFunctionFile")
+        self.boneVP = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-Bone.vp",
+                                                   "TransferFunctionFile")
+
+        self.boneVP2 = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-Bone2.vp",
+                                                    "TransferFunctionFile")
+
+    def removeTube(self):
+        if self.headSegmentID is None:
+            self.outputSegmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+            self.outputSegmentation.CreateDefaultDisplayNodes()
+            self.outputSegmentation.SetDisplayVisibility(0)
+            self.outputSegmentation.SetReferenceImageGeometryParameterFromVolumeNode(self.volumeNode)
+
+            self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
+            # To show segment editor widget (useful for debugging): segmentEditorWidget.show()
+            self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
+            self.segmentEditorNode = slicer.vtkMRMLSegmentEditorNode()
+            self.segmentEditorNode.SetOverwriteMode(slicer.vtkMRMLSegmentEditorNode.OverwriteNone)
+            slicer.mrmlScene.AddNode(self.segmentEditorNode)
+            self.segmentEditorWidget.setMRMLSegmentEditorNode(self.segmentEditorNode)
+            self.segmentEditorWidget.setSegmentationNode(self.outputSegmentation)
+            self.segmentEditorWidget.setMasterVolumeNode(self.volumeNode)
+
+            self.headSegmentID = self.outputSegmentation.GetSegmentation().AddEmptySegment("head")
+            self.segmentEditorNode.SetSelectedSegmentID(self.headSegmentID)
+            self.segmentEditorWidget.setActiveEffectByName("Threshold")
+
+            volumeScalarRange = self.volumeNode.GetImageData().GetScalarRange()
+
+            effect = self.segmentEditorWidget.activeEffect()
+            effect.setParameter("MinimumThreshold", str(-200))
+            effect.setParameter("MaximumThreshold", str(volumeScalarRange[1]))
+            effect.self().onApply()
+
+            self.segmentEditorWidget.setActiveEffectByName("Islands")
+            effect = self.segmentEditorWidget.activeEffect()
+            effect.setParameterDefault("Operation", "KEEP_LARGEST_ISLAND")
+            effect.self().onApply()
+
+    def removeNoise(self):
+        if self.headSegmentID is None:
+            self.removeTube()
+        if self.skullSegmentId is None:
+            self.skullSegmentId = self.outputSegmentation.GetSegmentation().AddEmptySegment("bone")
+            self.segmentEditorNode.SetSelectedSegmentID(self.skullSegmentId)
+            self.segmentEditorWidget.setActiveEffectByName("Threshold")
+
+            volumeScalarRange = self.volumeNode.GetImageData().GetScalarRange()
+
+            effect = self.segmentEditorWidget.activeEffect()
+            effect.setParameter("MinimumThreshold", str(143))
+            effect.setParameter("MaximumThreshold", str(volumeScalarRange[1]))
+            effect.self().onApply()
+
+            self.segmentEditorWidget.setActiveEffectByName("Islands")
+            effect = self.segmentEditorWidget.activeEffect()
+            effect.setParameter("Operation", "REMOVE_SMALL_ISLANDS")
+            effect.setParameter("MinimumSize", "1000")
+            effect.self().onApply()
+
+            self.segmentEditorWidget.setActiveEffectByName("Logical operators")
+            effect = self.segmentEditorWidget.activeEffect()
+            effect.setParameter("Operation", "INTERSECT")
+            effect.setParameter("ModifierSegmentID", self.headSegmentID)
+            effect.self().onApply()
+
+    def onRemoveTube(self):
+
+        self.removeTube()
+
+        self.segmentEditorNode.SetSelectedSegmentID(self.headSegmentID)
+        self.segmentEditorWidget.setActiveEffectByName("Mask volume")
+        effect = self.segmentEditorWidget.activeEffect()
+        effect.setParameter("FillValue", str(-200))
+        # Blank out voxels that are outside the segment
+        effect.setParameter("Operation", "FILL_OUTSIDE")
+        # Create a volume that will store temporary masked volumes
+
+        effect.self().outputVolumeSelector.setCurrentNode(self.maskedVolume)
+        effect.self().onApply()
+
+        self.turnOffRender(self.volumeNode)
+        self.turnOnRender(self.maskedVolume)
+
+    def onRemoveNoise(self):
+        self.removeNoise()
+
+        self.segmentEditorNode.SetSelectedSegmentID(self.skullSegmentId)
+        self.segmentEditorWidget.setActiveEffectByName("Mask volume")
+        effect = self.segmentEditorWidget.activeEffect()
+        effect.setParameter("FillValue", str(-200))
+        # Blank out voxels that are outside the segment
+        effect.setParameter("Operation", "FILL_OUTSIDE")
+        # Create a volume that will store temporary masked volumes
+
+        effect.self().outputVolumeSelector.setCurrentNode(self.maskedVolume)
+        effect.self().onApply()
+
+        self.turnOffRender(self.volumeNode)
+        self.turnOnRender(self.maskedVolume)
+
+    def onOriginalVolume(self):
+        self.turnOffRender(self.maskedVolume)
+        self.turnOnRender(self.volumeNode)
 
     def onBoneWindow(self):
         # Set window/level of the volume to bone
@@ -290,8 +477,23 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         displayNode.SetWindow(100)
         displayNode.SetLevel(50)
 
-    def cleanup(self):
-        pass
+    def onBoneRender(self):
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode).GetVolumePropertyNode().Copy(self.boneVP)
+        volRenLogic.GetFirstVolumeRenderingDisplayNode(self.maskedVolume).GetVolumePropertyNode().Copy(self.boneVP)
+
+    def onBoneRender2(self):
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode).GetVolumePropertyNode().Copy(self.boneVP2)
+        volRenLogic.GetFirstVolumeRenderingDisplayNode(self.maskedVolume).GetVolumePropertyNode().Copy(self.boneVP2)
+
+    def onSoftTissueRender(self):
+        # Set window/level of the volume to bone
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode).GetVolumePropertyNode().Copy(
+            self.softTissueVP)
+        volRenLogic.GetFirstVolumeRenderingDisplayNode(self.maskedVolume).GetVolumePropertyNode().Copy(
+            self.softTissueVP)
 
     def onStartSegmentation(self):
         logic = LandmarkFlowLogic()
@@ -355,6 +557,54 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         slicer.util.resetSliceViews()
 
         print("Frankfort Alignment")
+
+    def onFrankfort2(self):
+
+        for i in range(0, self.fiducialNode.GetNumberOfControlPoints()):
+            self.fiducialNode.SetNthFiducialLabel(i, self.landmarkNames[i])
+
+        logic = LandmarkFlowLogic()
+
+        zyoR_id = np.where(self.landmarkNames == "zyoR")[0][0]
+        poR_id = np.where(self.landmarkNames == "poR")[0][0]
+        poL_id = np.where(self.landmarkNames == "poL")[0][0]
+
+        if (self.fiducialNode.GetNumberOfFiducials() <= zyoR_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poR_id) | (
+                self.fiducialNode.GetNumberOfFiducials() <= poL_id):
+            msg = qt.QMessageBox()
+            msg.setIcon(qt.QMessageBox.Warning)
+            msg.setText("All necessary landmarks not marked yet")
+            msg.setWindowTitle("Missing landmark")
+            msg.setStandardButtons(qt.QMessageBox.Ok)
+            msg.exec_()
+            logging.debug("Error loading associated files.")
+            return
+
+        poR = [0, 0, 0]
+        poL = [0, 0, 0]
+        zyoR = [0, 0, 0]
+
+        self.fiducialNode.GetNthFiducialPosition(poR_id, poR)
+        self.fiducialNode.GetNthFiducialPosition(poL_id, poL)
+        self.fiducialNode.GetNthFiducialPosition(zyoR_id, zyoR)
+        mat = logic.getFrankfortAlignment(poR, poL, zyoR)
+
+        self.transformNode.SetAndObserveMatrixTransformToParent(mat)
+
+        # Reset ROI
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
+
+        # center view
+        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
+        # center slice view
+        slicer.util.resetSliceViews()
+
+        print("Frankfort Alignment right")
 
     def onOSeaAlignment(self):
 
@@ -460,6 +710,10 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         # TODO ask for a reason, maybe a text box?
         self.updateTableAndGUI(False)
 
+    def onSkip(self):
+        # TODO ask for a reason, maybe a text box?
+        self.cleanup()
+
     def updateStatus(self, index, status_string):
         # refresh table from file, update the status column, and save
         name = self.fileTable.GetName()
@@ -468,7 +722,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.fileTable.SetLocked(True)
         self.fileTable.SetName(name)
         logic = LandmarkFlowLogic()
-        logic.hideCompletedSamples(self.fileTable)
+        # logic.hideCompletedSamples(self.fileTable)
         statusColumn = self.fileTable.GetTable().GetColumnByName('Status')
         statusColumn.SetValue(index - 1, status_string)
 
@@ -510,7 +764,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
             self.importVolumeButton.enabled = True
             self.assignLayoutDescription(self.fileTable)
-            logic.hideCompletedSamples(self.fileTable)
+            # logic.hideCompletedSamples(self.fileTable)
             self.fileTable.SetLocked(True)
             self.fileTable.GetTable().Modified()  # update table view
         else:
@@ -530,7 +784,6 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             volumePath = os.path.join(self.imagedir, self.activeCellString)
             self.volumeNode = logic.runImport(volumePath)
             if bool(self.volumeNode):
-                self.markIncompleteButton.enabled = True
                 # self.startSegmentationButton.enabled = True
                 self.activeRow = logic.getActiveCellRow()
                 # self.updateStatus(self.activeRow, 'Processing') # TODO uncomment this
@@ -541,33 +794,28 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 displayNode.SetWindow(1000)
                 displayNode.SetLevel(400)
 
-                # 3D render volume
-                volRenLogic = slicer.modules.volumerendering.logic()
-                displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(self.volumeNode)
-                displayNode.SetVisibility(True)
-                displayNode.GetVolumePropertyNode().Copy(volRenLogic.GetPresetByName('CT-AAA'))
-
-                displayNode.CroppingEnabledOn()
-                displayNode.GetROINode().GetDisplayNode().SetVisibility(True)
-                volRenLogic.FitROIToVolume(displayNode)
-
-                layoutManager = slicer.app.layoutManager()
-                threeDWidget = layoutManager.threeDWidget(0)
-                threeDView = threeDWidget.threeDView()
-                threeDView.resetFocalPoint()
-                threeDView.lookFromAxis(5)
-
                 # center slice view
                 slicer.util.resetSliceViews()
 
-                self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
-                slicer.util.selectModule('Markups')
-                self.exportLandmarksButton.enabled = True
-                self.frankfortAlignment.enabled = True
-                self.oSeAlignment.enabled = True
-                self.oNaAlignment.enabled = True
-                self.boneWindow.enabled = True
-                self.softTissueWindow.enabled = True
+                # 3D render
+                self.render3d(self.volumeNode)
+                self.turnOnRender(self.volumeNode)
+
+                self.maskedVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode",
+                                                                       "Temporary masked volume")
+                self.render3d(self.maskedVolume)
+
+                # fiducials
+                fiducialName = os.path.splitext(self.activeCellString)[0]
+                fiducialName = os.path.splitext(fiducialName)[0]
+                fiducialOutput = os.path.join(self.landmarkdir, fiducialName + '.fcsv')
+                print(fiducialOutput)
+                try:
+                    _, self.fiducialNode = slicer.util.loadMarkupsFiducialList(fiducialOutput)
+                except:
+                    self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
+
+                # slicer.util.selectModule('Markups')
 
                 matrix = vtk.vtkMatrix4x4()
                 matrix.Identity()
@@ -577,7 +825,10 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 self.transformNode.SetAndObserveTransformToParent(transform)
 
                 self.volumeNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
+                self.maskedVolume.SetAndObserveTransformNodeID(self.transformNode.GetID())
                 self.fiducialNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
+
+                self.enableButtons()
 
             else:
                 msg = qt.QMessageBox()
@@ -594,6 +845,9 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
     def onExportLandmarks(self):
         if hasattr(self, 'fiducialNode'):
+            for i in range(0, self.fiducialNode.GetNumberOfControlPoints()):
+                self.fiducialNode.SetNthFiducialLabel(i, self.landmarkNames[i])
+
             fiducialName = os.path.splitext(self.activeCellString)[0]
             fiducialName = os.path.splitext(fiducialName)[0]
             fiducialOutput = os.path.join(self.landmarkdir, fiducialName + '.fcsv')
@@ -618,29 +872,104 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         else:
             self.updateStatus(self.activeRow, 'Incomplete')
         # clean up
+        self.cleanup(self)
+        # self.startSegmentationButton.enabled = False
+        # self.exportSegmentationButton.enabled = False
+
+    def cleanup(self):
+
+        # TODO self.headNodeID etc..
         if hasattr(self, 'fiducialNode'):
             slicer.mrmlScene.RemoveNode(self.fiducialNode)
         if hasattr(self, 'volumeNode'):
             slicer.mrmlScene.RemoveNode(self.volumeNode)
+        if hasattr(self, 'maskedVolume'):
+            slicer.mrmlScene.RemoveNode(self.maskedVolume)
         if hasattr(self, 'segmentationNode'):
             slicer.mrmlScene.RemoveNode(self.segmentationNode)
         if hasattr(self, 'labelMap'):
             slicer.mrmlScene.RemoveNode(self.labelMap)
+        if hasattr(self, 'transformNode'):
+            slicer.mrmlScene.RemoveNode(self.transformNode)
+        if hasattr(self, 'outputSegmentation'):
+            slicer.mrmlScene.RemoveNode(self.outputSegmentation)
+        if hasattr(self, 'segmentEditorNode'):
+            slicer.mrmlScene.RemoveNode(self.segmentEditorNode)
+
+        self.headSegmentID = None
+        self.skullSegmentId = None
+
         annotationROIs = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationROINode")
         for roi in annotationROIs:
             slicer.mrmlScene.RemoveNode(roi)
 
         self.selectorButton.enabled = bool(self.tablepath)
-        self.importVolumeButton.enabled = True
+        self.disableButtons()
+
+    def enableButtons(self):
+        self.markIncompleteButton.enabled = True
+        self.exportLandmarksButton.enabled = True
+        self.boneWindow.enabled = True
+        self.softTissueWindow.enabled = True
+        self.boneRender.enabled = True
+        self.boneRender2.enabled = True
+        self.softTissueRender.enabled = True
+        self.removeNoiseButton.enabled = True
+        self.removeTubeButton.enabled = True
+        self.originalVolumeButton.enabled = True
+        self.frankfortAlignment.enabled = True
+        self.frankfortAlignmentR.enabled = True
+        self.oSeAlignment.enabled = True
+        self.oNaAlignment.enabled = True
+        self.skipButton.enabled = True
+        self.importVolumeButton.enabled = False
+
+    def disableButtons(self):
         self.markIncompleteButton.enabled = False
         self.exportLandmarksButton.enabled = False
         self.boneWindow.enabled = False
         self.softTissueWindow.enabled = False
+        self.boneRender.enabled = False
+        self.boneRender2.enabled = False
+        self.softTissueRender.enabled = False
+        self.removeNoiseButton.enabled = False
+        self.removeTubeButton.enabled = False
+        self.originalVolumeButton.enabled = False
         self.frankfortAlignment.enabled = False
+        self.frankfortAlignmentR.enabled = False
         self.oSeAlignment.enabled = False
         self.oNaAlignment.enabled = False
-        # self.startSegmentationButton.enabled = False
-        # self.exportSegmentationButton.enabled = False
+        self.skipButton.enabled = False
+        self.importVolumeButton.enabled = True
+
+    def render3d(self, volumeNode):
+        # 3D render volume
+        volRenLogic = slicer.modules.volumerendering.logic()
+        displayNode = volRenLogic.CreateDefaultVolumeRenderingNodes(volumeNode)
+        # displayNode.SetVisibility(True)
+        displayNode.GetVolumePropertyNode().Copy(self.boneVP2)
+
+        displayNode.CroppingEnabledOn()
+        # displayNode.GetROINode().GetDisplayNode().SetVisibility(True)
+        volRenLogic.FitROIToVolume(displayNode)
+
+        layoutManager = slicer.app.layoutManager()
+        threeDWidget = layoutManager.threeDWidget(0)
+        threeDView = threeDWidget.threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
+    def turnOnRender(self, volumeNode):
+        volRenLogic = slicer.modules.volumerendering.logic()
+        displayNode = volRenLogic.GetFirstVolumeRenderingDisplayNode(volumeNode)
+        displayNode.Visibility3DOn()
+        displayNode.GetROINode().GetDisplayNode().SetVisibility(True)
+
+    def turnOffRender(self, volumeNode):
+        volRenLogic = slicer.modules.volumerendering.logic()
+        displayNode = volRenLogic.GetFirstVolumeRenderingDisplayNode(volumeNode)
+        displayNode.Visibility3DOff()
+        displayNode.GetROINode().GetDisplayNode().SetVisibility(False)
 
 
 class LogDataObject:
