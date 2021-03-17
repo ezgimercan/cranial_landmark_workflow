@@ -24,7 +24,7 @@ class LandmarkFlow(ScriptedLoadableModule):
 
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
-        self.parent.title = "CranIAL CT Annotation"
+        self.parent.title = "CranIAL CT Annotation TEST"
         self.parent.categories = ["SlicerMorph.SlicerMorph Labs"]
         self.parent.dependencies = []
         self.parent.contributors = [
@@ -118,6 +118,9 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.headSegmentID = None
         self.skullSegmentId = None
+        self.segmentationNode = None
+        self.segmentEditorWidget = None
+        self.segmentEditorNode = None
 
         # Instantiate and connect widgets ...
         #
@@ -172,7 +175,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         segmentTabLayout = qt.QFormLayout(segmentTab)
 
         tabsWidget.addTab(landmarkTab, "Landmark")
-        # tabsWidget.addTab(segmentTab, "Segment")
+        tabsWidget.addTab(segmentTab, "Segment")
         annotationsLayout.addWidget(tabsWidget)
 
         windowing = ctk.ctkCollapsibleButton()
@@ -310,7 +313,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         #
         # Skip Button
         #
-        self.skipButton = qt.QPushButton("Skip")
+        self.skipButton = qt.QPushButton("Clear Scene /Skip")
         self.skipButton.toolTip = "Clean scene and skip"
         self.skipButton.enabled = False
         exportsLayout.addWidget(self.skipButton, 1, 3)
@@ -364,12 +367,16 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.boneVP2 = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-Bone2.vp",
                                                     "TransferFunctionFile")
 
+        self.startSegmentationButton.connect('clicked(bool)', self.onStartSegmentation)
+        self.exportSegmentationButton.connect('clicked(bool)', self.onExportSegmentation)
+
     def removeTube(self):
         if self.headSegmentID is None:
-            self.outputSegmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
-            self.outputSegmentation.CreateDefaultDisplayNodes()
-            self.outputSegmentation.SetDisplayVisibility(0)
-            self.outputSegmentation.SetReferenceImageGeometryParameterFromVolumeNode(self.volumeNode)
+            self.cleaningSegmentation = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")
+            self.cleaningSegmentation.CreateDefaultDisplayNodes()
+            self.cleaningSegmentation.SetDisplayVisibility(0)
+            self.cleaningSegmentation.SetReferenceImageGeometryParameterFromVolumeNode(self.volumeNode)
+            self.cleaningSegmentation.SetAndObserveTransformNodeID(self.transformNode.GetID())
 
             self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
             # To show segment editor widget (useful for debugging): segmentEditorWidget.show()
@@ -378,10 +385,10 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             self.segmentEditorNode.SetOverwriteMode(slicer.vtkMRMLSegmentEditorNode.OverwriteNone)
             slicer.mrmlScene.AddNode(self.segmentEditorNode)
             self.segmentEditorWidget.setMRMLSegmentEditorNode(self.segmentEditorNode)
-            self.segmentEditorWidget.setSegmentationNode(self.outputSegmentation)
+            self.segmentEditorWidget.setSegmentationNode(self.cleaningSegmentation)
             self.segmentEditorWidget.setMasterVolumeNode(self.volumeNode)
 
-            self.headSegmentID = self.outputSegmentation.GetSegmentation().AddEmptySegment("head")
+            self.headSegmentID = self.cleaningSegmentation.GetSegmentation().AddEmptySegment("head")
             self.segmentEditorNode.SetSelectedSegmentID(self.headSegmentID)
             self.segmentEditorWidget.setActiveEffectByName("Threshold")
 
@@ -401,7 +408,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         if self.headSegmentID is None:
             self.removeTube()
         if self.skullSegmentId is None:
-            self.skullSegmentId = self.outputSegmentation.GetSegmentation().AddEmptySegment("bone")
+            self.skullSegmentId = self.cleaningSegmentation.GetSegmentation().AddEmptySegment("bone")
             self.segmentEditorNode.SetSelectedSegmentID(self.skullSegmentId)
             self.segmentEditorWidget.setActiveEffectByName("Threshold")
 
@@ -441,6 +448,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.turnOffRender(self.volumeNode)
         self.turnOnRender(self.maskedVolume)
+        slicer.util.setSliceViewerLayers(background=self.volumeNode)
 
     def onRemoveNoise(self):
         self.removeNoise()
@@ -458,6 +466,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.turnOffRender(self.volumeNode)
         self.turnOnRender(self.maskedVolume)
+        slicer.util.setSliceViewerLayers(background=self.volumeNode)
 
     def onOriginalVolume(self):
         self.turnOffRender(self.maskedVolume)
@@ -496,19 +505,53 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             self.softTissueVP)
 
     def onStartSegmentation(self):
-        logic = LandmarkFlowLogic()
-        self.segmentationNode = logic.initializeSegmentation(self.volumeNode)
-        self.exportSegmentationButton.enabled = True
+        if self.segmentEditorNode is None:
+            self.segmentEditorWidget = slicer.qMRMLSegmentEditorWidget()
+            self.segmentEditorWidget.setMRMLScene(slicer.mrmlScene)
+            self.segmentEditorNode = slicer.vtkMRMLSegmentEditorNode()
+            self.segmentEditorNode.SetOverwriteMode(slicer.vtkMRMLSegmentEditorNode.OverwriteNone)
+            slicer.mrmlScene.AddNode(self.segmentEditorNode)
+
+        if self.segmentationNode is None:
+            logic = LandmarkFlowLogic()
+            self.segmentationNode = logic.initializeSegmentation(self.volumeNode)
+            self.segmentationNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
+            self.exportSegmentationButton.enabled = True
+            logic.segmentSkull(self.segmentationNode, self.segmentEditorNode, self.segmentEditorWidget, self.volumeNode)
+            self.startSegmentationButton.enabled = False
+            self.turnOffRender(self.volumeNode)
+
         slicer.util.selectModule(slicer.modules.segmenteditor)
+        editor = slicer.util.getNode("SegmentEditor_1")
+        editor.SetSelectedSegmentID("Intraop Material")
+        editor.SetOverwriteMode(2)
+        editor.SetMasterVolumeIntensityMask(1)
+        editor.SetMasterVolumeIntensityMaskRange(143, 5000)
+        editor.SetAttribute('BrushSphere', '1')
 
     def onExportSegmentation(self):
-        if hasattr(self, 'segmentationNode'):
-            segmentationName = os.path.splitext(self.activeCellString)[0]
-            segmentationOutput = os.path.join(self.landmarkDirSelector.currentPath, segmentationName + '.nrrd')
-            slicer.util.saveNode(self.segmentationNode, segmentationOutput)
-            self.updateTableAndGUI()
-        else:
-            logging.debug("No valid segmentation to export.")
+        if self.segmentationNode is not None:
+            shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+            exportFolderItemId = shNode.CreateFolderItem(shNode.GetSceneItemID(), "Segments")
+            slicer.modules.segmentations.logic().ExportAllSegmentsToModels(self.segmentationNode, exportFolderItemId)
+
+            if slicer.util.saveNode(self.segmentationNode,
+                                    os.path.join(self.landmarkdir, self.segmentationNode.GetName() + ".seg.nrrd")) and \
+                    slicer.util.saveNode(slicer.util.getNode("Skull"), os.path.join(self.landmarkdir,
+                                                                                    self.segmentationNode.GetName() + ".skull.ply")) and \
+                    slicer.util.saveNode(slicer.util.getNode("Intraop Material"), os.path.join(self.landmarkdir,
+                                                                                               self.segmentationNode.GetName() + ".material.ply")):
+
+                self.updateTableAndGUI("Segmentation")
+
+            else:
+                msg = qt.QMessageBox()
+                msg.setIcon(qt.QMessageBox.Warning)
+                msg.setText(
+                    "Cannot save the segmentation file.")
+                msg.setWindowTitle("File cannot be saved")
+                msg.setStandardButtons(qt.QMessageBox.Ok)
+                msg.exec_()
 
     def onFrankfort(self):
 
@@ -544,17 +587,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
-        # Reset ROI
-        volRenLogic = slicer.modules.volumerendering.logic()
-        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
-
-        # center view
-        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
-        threeDView.resetFocalPoint()
-        threeDView.lookFromAxis(5)
-
-        # center slice view
-        slicer.util.resetSliceViews()
+        self.resetViews()
 
         print("Frankfort Alignment")
 
@@ -592,17 +625,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
-        # Reset ROI
-        volRenLogic = slicer.modules.volumerendering.logic()
-        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
-
-        # center view
-        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
-        threeDView.resetFocalPoint()
-        threeDView.lookFromAxis(5)
-
-        # center slice view
-        slicer.util.resetSliceViews()
+        self.resetViews()
 
         print("Frankfort Alignment right")
 
@@ -643,17 +666,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
-        # Reset ROI
-        volRenLogic = slicer.modules.volumerendering.logic()
-        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
-
-        # center view
-        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
-        threeDView.resetFocalPoint()
-        threeDView.lookFromAxis(5)
-
-        # center slice view
-        slicer.util.resetSliceViews()
+        self.resetViews()
 
         print("O-Se Alignment")
 
@@ -693,17 +706,8 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
         self.transformNode.SetAndObserveMatrixTransformToParent(mat)
 
-        # Reset ROI
-        volRenLogic = slicer.modules.volumerendering.logic()
-        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
+        self.resetViews()
 
-        # center view
-        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
-        threeDView.resetFocalPoint()
-        threeDView.lookFromAxis(5)
-
-        # center slice view
-        slicer.util.resetSliceViews()
         print("O-Na Alignment")
 
     def onMarkIncomplete(self):
@@ -799,11 +803,12 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
 
                 # 3D render
                 self.render3d(self.volumeNode)
-                self.turnOnRender(self.volumeNode)
 
                 self.maskedVolume = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLScalarVolumeNode",
                                                                        "Temporary masked volume")
+                self.maskedVolume.CopyContent(self.volumeNode)
                 self.render3d(self.maskedVolume)
+                self.turnOffRender(self.maskedVolume)
 
                 # fiducials
                 fiducialName = os.path.splitext(self.activeCellString)[0]
@@ -811,10 +816,14 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 fiducialOutput = os.path.join(self.landmarkdir, fiducialName + '.fcsv')
                 print(fiducialOutput)
                 try:
-                    _, self.fiducialNode = slicer.util.loadMarkupsFiducialList(fiducialOutput)
+                    print("Loading fiducial")
+                    a = slicer.util.loadMarkupsFiducialList(fiducialOutput)
+                    self.fiducialNode = a[1]
                 except:
+                    print("failed loading fiducial")
                     self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", 'F')
-
+                # print(self.fiducialNode)
+                # print(self.fiducialNode.GetNumberOfControlPoints())
                 # slicer.util.selectModule('Markups')
 
                 matrix = vtk.vtkMatrix4x4()
@@ -827,6 +836,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
                 self.volumeNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
                 self.maskedVolume.SetAndObserveTransformNodeID(self.transformNode.GetID())
                 self.fiducialNode.SetAndObserveTransformNodeID(self.transformNode.GetID())
+                self.turnOnRender(self.volumeNode)
 
                 self.enableButtons()
 
@@ -852,7 +862,7 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             fiducialName = os.path.splitext(fiducialName)[0]
             fiducialOutput = os.path.join(self.landmarkdir, fiducialName + '.fcsv')
             if slicer.util.saveNode(self.fiducialNode, fiducialOutput):
-                self.updateTableAndGUI()
+                self.updateTableAndGUI("Landmark")
             else:
                 msg = qt.QMessageBox()
                 msg.setIcon(qt.QMessageBox.Warning)
@@ -866,19 +876,44 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
     #
     # Call after current landmark is finished.
     #
-    def updateTableAndGUI(self, complete=True):
+    def updateTableAndGUI(self, statusColumn, complete=True):
         if complete:
-            self.updateStatus(self.activeRow, 'Complete')
+            self.updateStatus(self.activeRow, statusColumn, 'Complete')
         else:
-            self.updateStatus(self.activeRow, 'Incomplete')
+            self.updateStatus(self.activeRow, statusColumn, 'Incomplete')
+        # self.checkAndCleanup(self.activeRow)
         # clean up
-        self.cleanup(self)
         # self.startSegmentationButton.enabled = False
         # self.exportSegmentationButton.enabled = False
 
+    def updateStatus(self, index, statusColumName, status_string):
+        # refresh table from file, update the status column, and save
+        name = self.fileTable.GetName()
+        slicer.mrmlScene.RemoveNode(self.fileTable)
+        self.fileTable = slicer.util.loadNodeFromFile(self.tablepath, 'TableFile')
+        self.fileTable.SetLocked(True)
+        self.fileTable.SetName(name)
+        # logic = MandibleNerveFlowLogic()
+        # logic.hideCompletedSamples(self.fileTable)
+        statusColumn = self.fileTable.GetTable().GetColumnByName(statusColumName)
+        statusColumn.SetValue(index - 1,
+                              status_string + "," + getpass.getuser() + "," + str(date.today()))
+
+        self.fileTable.GetTable().Modified()  # update table view
+        slicer.util.saveNode(self.fileTable, self.tablepath)
+
+    def checkAndCleanup(self, index):
+        name = self.fileTable.GetName()
+        slicer.mrmlScene.RemoveNode(self.fileTable)
+        self.fileTable = slicer.util.loadNodeFromFile(self.tablepath, 'TableFile')
+        self.fileTable.SetLocked(True)
+        self.fileTable.SetName(name)
+
+        if (self.fileTable.GetTable().GetColumnByName("Segmentation").GetValue(index - 1) is not ""):
+            self.cleanup()
+
     def cleanup(self):
 
-        # TODO self.headNodeID etc..
         if hasattr(self, 'fiducialNode'):
             slicer.mrmlScene.RemoveNode(self.fiducialNode)
         if hasattr(self, 'volumeNode'):
@@ -891,19 +926,32 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
             slicer.mrmlScene.RemoveNode(self.labelMap)
         if hasattr(self, 'transformNode'):
             slicer.mrmlScene.RemoveNode(self.transformNode)
-        if hasattr(self, 'outputSegmentation'):
-            slicer.mrmlScene.RemoveNode(self.outputSegmentation)
-        if hasattr(self, 'segmentEditorNode'):
-            slicer.mrmlScene.RemoveNode(self.segmentEditorNode)
+        if hasattr(self, 'cleaningSegmentation'):
+            slicer.mrmlScene.RemoveNode(self.cleaningSegmentation)
+        # if hasattr(self, 'segmentEditorNode'):
+        #     slicer.mrmlScene.RemoveNode(self.segmentEditorNode)
+        if hasattr(self, 'planeNode'):
+            slicer.mrmlScene.RemoveNode(self.planeNode)
 
         self.headSegmentID = None
         self.skullSegmentId = None
+        self.segmentationNode = None
+        self.planeNode = None
 
         annotationROIs = slicer.mrmlScene.GetNodesByClass("vtkMRMLAnnotationROINode")
         for roi in annotationROIs:
             slicer.mrmlScene.RemoveNode(roi)
 
-        self.selectorButton.enabled = bool(self.tablepath)
+        shNode = slicer.mrmlScene.GetSubjectHierarchyNode()
+        shNode.RemoveItem(shNode.GetItemByName("Segments"))
+        segments = slicer.mrmlScene.GetNodesByClass("vtkMRMLModelNode")
+        for segment in segments:
+            slicer.mrmlScene.RemoveNode(segment)
+
+        vps = slicer.mrmlScene.GetNodesByClass("vtkMRMLVolumePropertyNode")
+        for vp in vps:
+            slicer.mrmlScene.RemoveNode(vp)
+
         self.disableButtons()
 
     def enableButtons(self):
@@ -924,6 +972,9 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.skipButton.enabled = True
         self.importVolumeButton.enabled = False
 
+        self.startSegmentationButton.enabled = True
+        self.exportSegmentationButton.enabled = True
+
     def disableButtons(self):
         self.markIncompleteButton.enabled = False
         self.exportLandmarksButton.enabled = False
@@ -941,6 +992,9 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         self.oNaAlignment.enabled = False
         self.skipButton.enabled = False
         self.importVolumeButton.enabled = True
+
+        self.startSegmentationButton.enabled = False
+        self.exportSegmentationButton.enabled = False
 
     def render3d(self, volumeNode):
         # 3D render volume
@@ -970,6 +1024,20 @@ class LandmarkFlowWidget(ScriptedLoadableModuleWidget):
         displayNode = volRenLogic.GetFirstVolumeRenderingDisplayNode(volumeNode)
         displayNode.Visibility3DOff()
         displayNode.GetROINode().GetDisplayNode().SetVisibility(False)
+
+    def resetViews(self):
+        # Reset ROI
+        volRenLogic = slicer.modules.volumerendering.logic()
+        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.volumeNode))
+        volRenLogic.FitROIToVolume(volRenLogic.GetFirstVolumeRenderingDisplayNode(self.maskedVolume))
+
+        # center view
+        threeDView = slicer.app.layoutManager().threeDWidget(0).threeDView()
+        threeDView.resetFocalPoint()
+        threeDView.lookFromAxis(5)
+
+        # center slice view
+        slicer.util.resetSliceViews()
 
 
 class LogDataObject:
@@ -1044,33 +1112,79 @@ class LandmarkFlowLogic(ScriptedLoadableModuleLogic):
         annotationLogic = slicer.modules.annotations.logic()
         annotationLogic.CreateSnapShot(name, description, type, 1, imageData)
 
+    def segmentSkull(self, segmentationNode, segmentEditorNode, segmentEditorWidget, volumeNode):
+
+        segmentEditorWidget.setMRMLSegmentEditorNode(segmentEditorNode)
+        segmentEditorWidget.setSegmentationNode(segmentationNode)
+        segmentEditorWidget.setMasterVolumeNode(volumeNode)
+
+        headSegmentID = segmentationNode.GetSegmentation().AddEmptySegment("head")
+        segmentEditorNode.SetSelectedSegmentID(headSegmentID)
+        segmentEditorWidget.setActiveEffectByName("Threshold")
+
+        volumeScalarRange = volumeNode.GetImageData().GetScalarRange()
+
+        effect = segmentEditorWidget.activeEffect()
+        effect.setParameter("MinimumThreshold", str(-200))
+        effect.setParameter("MaximumThreshold", str(volumeScalarRange[1]))
+        effect.self().onApply()
+
+        segmentEditorWidget.setActiveEffectByName("Islands")
+        effect = segmentEditorWidget.activeEffect()
+        effect.setParameterDefault("Operation", "KEEP_LARGEST_ISLAND")
+        effect.self().onApply()
+
+        skullSegmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Skull")
+        segmentEditorNode.SetSelectedSegmentID(skullSegmentID)
+
+        segmentEditorWidget.setActiveEffectByName("Threshold")
+        effect = segmentEditorWidget.activeEffect()
+        effect.setParameter("MinimumThreshold", str(243))
+        effect.setParameter("MaximumThreshold", str(volumeScalarRange[1]))
+        effect.self().onApply()
+
+        segmentEditorWidget.setActiveEffectByName("Islands")
+        effect = segmentEditorWidget.activeEffect()
+        effect.setParameter("Operation", "REMOVE_SMALL_ISLANDS")
+        effect.setParameter("MinimumSize", "1000")
+        effect.self().onApply()
+
+        segmentEditorWidget.setActiveEffectByName("Logical operators")
+        effect = segmentEditorWidget.activeEffect()
+        effect.setParameter("Operation", "INTERSECT")
+        effect.setParameter("ModifierSegmentID", headSegmentID)
+        effect.self().onApply()
+
+        mandibleSegmentID = segmentationNode.GetSegmentation().GetSegmentIdBySegmentName("Intraop Material")
+        segmentEditorNode.SetSelectedSegmentID(mandibleSegmentID)
+
+        # segmentEditorWidget.setActiveEffectByName("Logical operators")
+        # effect = segmentEditorWidget.activeEffect()
+        # effect.setParameter("Operation", "COPY")
+        # effect.setParameter("ModifierSegmentID", skullSegmentID)
+        # effect.self().onApply()
+
+        segmentationNode.GetDisplayNode().SetSegmentVisibility(skullSegmentID, False)
+        segmentationNode.GetDisplayNode().SetSegmentVisibility(headSegmentID, False)
+
     def initializeSegmentation(self, masterVolumeNode):
         # Create segmentation
         segmentationName = masterVolumeNode.GetName()
         segmentationNode = slicer.mrmlScene.AddNewNodeByClass('vtkMRMLSegmentationNode',
-                                                              segmentationName + '_segmentation')
+                                                              segmentationName)
         segmentationNode.CreateDefaultDisplayNodes()  # only needed for display
         segmentationNode.SetReferenceImageGeometryParameterFromVolumeNode(masterVolumeNode)
         segmentation = segmentationNode.GetSegmentation()
         # Add template segments
-        self.addNewSegment(segmentation, "Dorsal Fin", (1.0, 1.0, 0.0))
-        self.addNewSegment(segmentation, "Adipose Fin", (0.172549, 0.764706, 0.945098))
-        self.addNewSegment(segmentation, "Caudal Fin", (0.396078, 0.027451, 0.447059))
-        self.addNewSegment(segmentation, "Anal Fin", (0.513725, 0.764706, 0.180392))
-        self.addNewSegment(segmentation, "Pelvic Fin", (1.0, 0.0, 0.0))
-        self.addNewSegment(segmentation, "Pectoral Fin", (0.121569, 0.823529, 0.203922))
-        self.addNewSegment(segmentation, "HeadEye", (0.0235294, 0.333333, 1.0))
-        self.addNewSegment(segmentation, "Eye", (1.0, 0.0, 0.498039))
-        self.addNewSegment(segmentation, "Caudal Fin Ray",
-                           (0.6392156862745098, 0.24705882352941178, 0.9607843137254902))
-        self.addNewSegment(segmentation, "Alt Fin Ray", (0.9764705882352941, 0.5215686274509804, 0.19215686274509805))
-        self.addNewSegment(segmentation, "Alt Fin Spine",
-                           (0.13725490196078433, 0.4588235294117647, 0.21568627450980393))
+        # self.addNewSegment(segmentation, "Skull", (0,0,0.3))
+        # self.addNewSegment(segmentation, "Mandible", (0,0,0.3))
+        # self.addNewSegment(segmentation, "inf.alv.nerve.right", (0,0,0.3))
+        # self.addNewSegment(segmentation, "inf.alv.nerve.left", (0,0,0.3))
+        segmentID = segmentation.AddEmptySegment("Skull")
+        segmentID = segmentation.AddEmptySegment("Intraop Material")
+
         return segmentationNode
 
-    def addNewSegment(self, segmentation, name, color):
-        segmentID = segmentation.AddEmptySegment(name)
-        segmentation.GetSegment(segmentID).SetColor(color)
 
     def getActiveCell(self):
         tableView = slicer.app.layoutManager().tableWidget(0).tableView()

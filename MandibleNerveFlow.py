@@ -414,9 +414,14 @@ class MandibleNerveFlowWidget(ScriptedLoadableModuleWidget):
 
                 try:
                     print("Loading fiducial")
-                    self.fiducialNode = slicer.util.loadMarkupsFiducialList(
+                    success, self.fiducialNode = slicer.util.loadMarkupsFiducialList(
                         os.path.join(self.landmarkdir, fileName + '.fcsv'))
-                    self.fiducialNode.SetName(fileName)
+
+                    if success:
+                        self.fiducialNode.SetName(fileName)
+                    else:
+                        print("failed loading fiducial")
+                        self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", fileName)
                 except:
                     print("failed loading fiducial")
                     self.fiducialNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLMarkupsFiducialNode", fileName)
@@ -861,7 +866,7 @@ class MandibleNerveFlowWidget(ScriptedLoadableModuleWidget):
             self.updateStatus(self.activeRow, statusColumn, 'Complete')
         else:
             self.updateStatus(self.activeRow, statusColumn, 'Incomplete')
-        self.checkAndCleanup(self.activeRow)
+        # self.checkAndCleanup(self.activeRow)
         # clean up
         # self.startSegmentationButton.enabled = False
         # self.exportSegmentationButton.enabled = False
