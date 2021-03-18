@@ -14,8 +14,6 @@ from datetime import date
 #
 # LandmarkFlow
 #
-labs = os.environ.get('labs', 'unknown_lab')
-
 
 class CleftLandmarkFlow(ScriptedLoadableModule):
     """Uses ScriptedLoadableModule base class, available at:
@@ -25,7 +23,7 @@ class CleftLandmarkFlow(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = "Cleft Image Annotation"
-        self.parent.categories = ["SlicerMorph.SlicerMorph Labs"]
+        self.parent.categories = ["SCH CranIAL"]
         self.parent.dependencies = []
         self.parent.contributors = [
             "Murat Maga (UW), Sara Rolfe (UW), Ezgi Mercan (SCH)"]  # replace with "Firstname Lastname (Organization)"

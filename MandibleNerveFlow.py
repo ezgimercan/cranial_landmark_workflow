@@ -24,7 +24,7 @@ class MandibleNerveFlow(ScriptedLoadableModule):
     def __init__(self, parent):
         ScriptedLoadableModule.__init__(self, parent)
         self.parent.title = "Mandible Nerve Annotation"
-        self.parent.categories = ["SlicerMorph.SlicerMorph Labs"]
+        self.parent.categories = ["SCH CranIAL"]
         self.parent.dependencies = []
         self.parent.contributors = [
             "Murat Maga (UW), Sara Rolfe (UW), Ezgi Mercan (SCH)"]  # replace with "Firstname Lastname (Organization)"
@@ -116,11 +116,12 @@ class MandibleNerveFlowWidget(ScriptedLoadableModuleWidget):
         self.planeNode = None
 
         # 3D render presets
-        self.softTissueVP = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-SoftTissue.vp",
+        self.softTissueVP = slicer.util.loadNodeFromFile(self.resourcePath("CT-SoftTissue.vp"),
                                                          "TransferFunctionFile")
-        self.boneVP = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-Bone.vp",
+        self.boneVP = slicer.util.loadNodeFromFile(self.resourcePath("CT-Bone.vp"),
                                                    "TransferFunctionFile")
-        self.boneVP2 = slicer.util.loadNodeFromFile("/opt/Slicer-Extensions-29025/CranialModules/CT-Bone2.vp",
+
+        self.boneVP2 = slicer.util.loadNodeFromFile(self.resourcePath("CT-Bone2.vp"),
                                                     "TransferFunctionFile")
 
         # region IO
